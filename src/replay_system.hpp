@@ -67,7 +67,9 @@ public:
         frame_advance = false;
         update_frame_offset();
         update_status_label();
-    } 
+    }
+
+    void push_current_replay();
 
     void record_action(bool hold, bool player1, bool flip = true);
     void play_action(const Action& action);

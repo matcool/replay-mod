@@ -40,64 +40,24 @@ void ReplaySystem::update_frame_offset() {
 
 void ReplaySystem::on_reset() {
     auto play_layer = gd::GameManager::sharedState()->getPlayLayer();
-    if (is_playing()) {
-        update_frame_offset();
-        orig<&Hooks::PlayLayer::releaseButton>(play_layer, 0, false);
-        orig<&Hooks::PlayLayer::releaseButton>(play_layer, 0, true);
-        action_index = 0;
-        practice_fixes.activated_objects.clear();
-        practice_fixes.activated_objects_p2.clear();
-    } else {
-        // bool has_checkpoints = play_layer->m_checkpoints->count();
-        // const auto checkpoint = practice_fixes.get_last_checkpoint();
-        // if (!has_checkpoints) {
-        //     practice_fixes.activated_objects.clear();
-        //     practice_fixes.activated_objects_p2.clear();
-        //     frame_offset = 0;
-        // } else {
-        //     frame_offset = checkpoint.frame;
-        //     constexpr auto delete_from = [&](auto& vec, size_t index) {
-        //         vec.erase(vec.begin() + index, vec.end());
-        //     };
-        //     delete_from(practice_fixes.activated_objects, checkpoint.activated_objects_size);
-        //     delete_from(practice_fixes.activated_objects_p2, checkpoint.activated_objects_p2_size);
-        //     if (is_recording()) {
-        //         for (const auto& object : practice_fixes.activated_objects) {
-        //             object->m_hasBeenActivated = true;
-        //         }
-        //         for (const auto& object : practice_fixes.activated_objects_p2) {
-        //             object->m_hasBeenActivatedP2 = true;
-        //         }
-        //     }
-        // }
-        if (is_recording()) {
-            temp_replays.push_back(std::make_shared<Replay>(replay));
-            if (temp_replays.size() > 5) {
-                temp_replays.erase(temp_replays.begin());
-            }
-            replay = Replay(1.f / float(CCDirector::sharedDirector()->getAnimationInterval()), default_type);
-            // if (replay.get_type() == ReplayType::XPOS)
-            //     replay.remove_actions_after(play_layer->m_player1->m_position.x);
-            // else
-            //     replay.remove_actions_after(get_frame());
-            // const auto& actions = replay.get_actions();
-            // bool holding = play_layer->m_player1->m_isHolding;
-            // if ((holding && actions.empty()) || (!actions.empty() && actions.back().hold != holding)) {
-            //     record_action(holding, true, false);
-            //     if (holding) {
-            //         orig<&Hooks::PlayLayer::releaseButton>(play_layer, 0, true);
-            //         orig<&Hooks::PlayLayer::pushButton>(play_layer, 0, true);
-            //         play_layer->m_player1->m_hasJustHeld = true;
-            //     }
-            // } else if (!actions.empty() && actions.back().hold && holding && has_checkpoints && checkpoint.player1.buffer_orb) {
-            //     orig<&Hooks::PlayLayer::releaseButton>(play_layer, 0, true);
-            //     orig<&Hooks::PlayLayer::pushButton>(play_layer, 0, true);
-            // }
-            // if (play_layer->m_levelSettings->m_twoPlayerMode)
-            //     record_action(false, false, false);
-            // practice_fixes.apply_checkpoint();
+    frame_offset = 0;
+    action_index = 0;
+    if (is_recording()) {
+        replay = Replay(1.f / float(CCDirector::sharedDirector()->getAnimationInterval()), default_type);
+        if (play_layer->m_player1->m_isHolding) {
+            record_action(true, true, false);
+            // TODO: this makes some funky levels impossible lol
+            orig<&Hooks::PlayLayer::releaseButton>(play_layer, 0, true);
+            orig<&Hooks::PlayLayer::pushButton>(play_layer, 0, true);
+            play_layer->m_player1->m_hasJustHeld = true;
         }
     }
+}
+
+void ReplaySystem::push_current_replay() {
+    temp_replays.push_back(std::make_shared<Replay>(replay));
+    if (temp_replays.size() > 5)
+        temp_replays.erase(temp_replays.begin());
 }
 
 void ReplaySystem::handle_playing() {

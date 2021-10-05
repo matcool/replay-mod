@@ -13,13 +13,14 @@ float g_left_over = 0.f;
 
 void Hooks::CCScheduler_update(CCScheduler* self, float dt) {
     auto& rs = ReplaySystem::get_instance();
-    if (rs.recorder.m_recording || rs.is_playing() || rs.is_recording() && gd::GameManager::sharedState()->getPlayLayer()) {
+    auto play_layer = gd::GameManager::sharedState()->getPlayLayer();
+    if (rs.recorder.m_recording || rs.is_playing() || rs.is_recording() && play_layer) {
         const auto fps = rs.get_replay().get_fps();
         auto speedhack = self->getTimeScale();
 
         const float target_dt = 1.f / fps / speedhack;
 
-        if (!rs.real_time_mode)
+        if (!rs.real_time_mode || !play_layer->unk2EC) // isNotFrozen
             return orig<&CCScheduler_update, Thiscall>(self, target_dt);
 
         // todo: find ways to disable more render stuff
@@ -228,8 +229,7 @@ void PlayerObject_playerDestroyed(gd::PlayerObject* self, bool idk) {
     orig<&PlayerObject_playerDestroyed>(self, idk);
     auto& rs = ReplaySystem::get_instance();
     if (rs.is_recording()) {
-        rs.on_reset();
-        rs.toggle_recording(); // this is stupid lol
+        rs.push_current_replay();
     }
 }
 

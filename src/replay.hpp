@@ -23,7 +23,8 @@ protected:
     float fps;
     ReplayType type;
 public:
-    Replay(float fps, ReplayType type = ReplayType::FRAME) : fps(fps), type(type) {}
+    int level_id = 0;
+    Replay(float fps, ReplayType type = ReplayType::FRAME);
 
     float get_fps() { return fps; }
     

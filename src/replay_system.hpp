@@ -2,6 +2,8 @@
 #include "replay.hpp"
 #include "practice_fixes.hpp"
 #include "recorder.hpp"
+#include <vector>
+#include <memory>
 
 // this is a rly bad name
 enum RSState {
@@ -25,10 +27,10 @@ class ReplaySystem {
 
     ReplaySystem() : default_fps(240.f), replay(default_fps), default_type(replay.get_type()) {}
 
-    void _update_status_label();
-
     unsigned frame_offset = 0;
 public:
+    std::vector<std::shared_ptr<Replay>> temp_replays;
+
     static auto& get_instance() {
         static ReplaySystem instance;
         return instance;
@@ -45,25 +47,26 @@ public:
     inline bool is_recording() { return state == RECORDING; }
 
     void update_frame_offset();
+    void update_status_label();
 
     void toggle_playing() {
         state = is_playing() ? NOTHING : PLAYING;
         update_frame_offset();
-        _update_status_label();
+        update_status_label();
     }
     void toggle_recording() {
         state = is_recording() ? NOTHING : RECORDING;
         if (!is_recording()) frame_advance = false;
-        else replay = Replay(default_fps, default_type);
+        else replay = Replay(1.f / float(CCDirector::sharedDirector()->getAnimationInterval()), default_type);
         update_frame_offset();
-        _update_status_label();
+        update_status_label();
     }
 
     void reset_state() {
         state = NOTHING;
         frame_advance = false;
         update_frame_offset();
-        _update_status_label();
+        update_status_label();
     } 
 
     void record_action(bool hold, bool player1, bool flip = true);

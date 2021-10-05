@@ -11,6 +11,7 @@ namespace Hooks {
     CCObject* CheckpointObject_create();
     
     namespace PlayLayer {
+        bool init(gd::PlayLayer*, gd::GJGameLevel* lvl);
         void update(gd::PlayLayer*, float dt);
 
         void pushButton(gd::PlayLayer*, int, bool);

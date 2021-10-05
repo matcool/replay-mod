@@ -99,7 +99,7 @@ bool RecorderLayer::init() {
     layer->addChild(input);
 
     input = NumberInputNode::create(CCSize(50.f, 30.f));
-    input->set_value(rs.recorder.m_after_end_duration);
+    input->set_value(int(rs.recorder.m_after_end_duration));
     input->setPosition(top_left + ccp(346.f, -65.f));
     input->input_node->setMaxLabelScale(0.73f);
     input->callback = [&rs](auto input) {

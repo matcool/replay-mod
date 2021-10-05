@@ -5,7 +5,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 include(libraries/mat-dash/include.cmake)
 
-project(replay-bot)
+project(replay-mod)
 
 find_file(WINDOWS_HEADER windows.h)
 if(NOT WINDOWS_HEADER)
@@ -15,9 +15,9 @@ endif()
 # TODO: not
 add_compile_definitions(FTG_IGNORE_UNICODE)
 
-if (${CMAKE_BUILD_TYPE} STREQUAL "RelWithDebInfo")
+# if (${CMAKE_BUILD_TYPE} STREQUAL "RelWithDebInfo")
   add_compile_definitions(SHOW_CONSOLE)
-endif()
+# endif()
 
 file(
   GLOB_RECURSE SOURCE_FILES
@@ -25,9 +25,9 @@ file(
   libraries/nfd/src/nfd_common.c
   libraries/nfd/src/nfd_win.cpp
 )
-add_library(replay-bot SHARED ${SOURCE_FILES})
+add_library(replay-mod SHARED ${SOURCE_FILES})
 
-target_include_directories(replay-bot PRIVATE
+target_include_directories(replay-mod PRIVATE
   libraries/gd.h/include
   libraries/gd.h
   libraries/minhook/include
@@ -43,7 +43,7 @@ target_include_directories(replay-bot PRIVATE
 
 add_subdirectory(libraries/minhook)
 
-target_link_libraries(replay-bot
+target_link_libraries(replay-mod
   minhook
   ${CMAKE_SOURCE_DIR}/libraries/cocos-headers/cocos2dx/libcocos2d.lib
   ${CMAKE_SOURCE_DIR}/libraries/cocos-headers/extensions/libExtensions.lib

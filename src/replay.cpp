@@ -1,6 +1,13 @@
 #include "replay.hpp"
 #include <fstream>
 #include "utils.hpp"
+#include <gd.h>
+
+Replay::Replay(float fps, ReplayType type) : fps(fps), type(type) {
+	if (auto play_layer = gd::GameManager::sharedState()->getPlayLayer()) {
+		level_id = play_layer->m_level->levelID;
+	}
+}
 
 void Replay::remove_actions_after(float x) {
 	const auto check = [&](const Action& action) -> bool {

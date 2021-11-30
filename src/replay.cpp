@@ -49,9 +49,11 @@ inline T bin_read(std::ifstream& stream) {
  * - version 2
  * add `type as u8` between version and fps
  * change action x to be either float or an unsigned int
+ * 
+ * - version 3 : replay mod exclusive
  */
 
-constexpr uint8_t format_ver = 2;
+constexpr uint8_t format_ver = 3;
 constexpr const char* format_magic = "RPLY";
 
 void Replay::save(const std::string& path) {
@@ -59,6 +61,11 @@ void Replay::save(const std::string& path) {
 	file.open(path, std::ios::binary | std::ios::out);
 	file << format_magic << format_ver << type;
 	bin_write(file, fps);
+	bin_write(file, died_at);
+	bin_write(file, level_id);
+	bin_write(file, level_name.size());
+	file << level_name;
+	// TODO: maybe also write created_at ?
 	for (const auto& action : actions) {
 		uint8_t state = static_cast<uint8_t>(action.hold) | static_cast<uint8_t>(action.player2) << 1;
 		if (type == ReplayType::XPOS)
@@ -83,9 +90,16 @@ Replay Replay::load(const std::string& path)  {
 	file.read(magic, 4);
 	if (memcmp(magic, format_magic, 4) == 0) {
 		auto ver = bin_read<uint8_t>(file);
-		if (ver == 1 || ver == 2) {
-			if (ver == 2) replay.type = ReplayType(bin_read<uint8_t>(file));
+		if (ver >= 1) {
+			if (ver >= 2) replay.type = ReplayType(bin_read<uint8_t>(file));
 			replay.fps = bin_read<float>(file);
+			if (ver == 3) {
+				replay.died_at = bin_read<float>(file);
+				replay.level_id = bin_read<int>(file);
+				auto length = bin_read<size_t>(file);
+				replay.level_name.resize(length, 'A');
+				file.read(replay.level_name.data(), length);				
+			}
 			size_t left = file_size - static_cast<size_t>(file.tellg());
 			float x;
 			unsigned frame;

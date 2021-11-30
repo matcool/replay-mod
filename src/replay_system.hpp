@@ -4,6 +4,7 @@
 #include "recorder.hpp"
 #include <vector>
 #include <memory>
+#include <filesystem>
 
 // this is a rly bad name
 enum RSState {
@@ -62,12 +63,7 @@ public:
         update_status_label();
     }
 
-    void reset_state() {
-        state = NOTHING;
-        frame_advance = false;
-        update_frame_offset();
-        update_status_label();
-    }
+    void reset_state(bool save = false);
 
     void push_current_replay();
 
@@ -84,6 +80,8 @@ public:
     inline void set_frame_advance(bool b) { frame_advance = b; }
 
     unsigned get_frame();
+
+    std::filesystem::path get_replays_path();
 
     bool real_time_mode = true; // fuck it we going public
     bool showcase_mode = false;

@@ -25,3 +25,14 @@ template <typename R, typename U>
 R& from_offset(U base, int offset) {
     return *cast<R*>(cast<intptr_t>(base) + offset);
 }
+
+// only use this when necessary
+template <typename T, typename U>
+T union_cast(U value) {
+    union {
+        T a;
+        U b;
+    } u;
+    u.b = value;
+    return u.a;
+}

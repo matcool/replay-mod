@@ -2,6 +2,7 @@
 #include <vector>
 #include <string>
 #include <iostream>
+#include <chrono>
 
 enum ReplayType : std::uint8_t {
     XPOS,
@@ -23,7 +24,10 @@ protected:
     float fps;
     ReplayType type;
 public:
+    std::string level_name;
     int level_id = 0;
+    float died_at = 0;
+    std::chrono::time_point<std::chrono::system_clock> created_at;
     Replay(float fps, ReplayType type = ReplayType::FRAME);
 
     float get_fps() { return fps; }

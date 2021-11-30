@@ -1,8 +1,11 @@
 #pragma once
 #include "includes.h"
+#include <vector>
+#include "replay.hpp"
 
 class ReplaysLayer : public CCLayer {
 public:
+    std::vector<Replay> replays;
     bool init();
     static auto create() {
         auto ret = new ReplaysLayer;
@@ -19,4 +22,8 @@ public:
     }
     virtual void keyBackClicked();
     void on_see(CCObject*);
+};
+
+class ReplayEndPopup : public gd::FLAlertLayer {
+public:
 };

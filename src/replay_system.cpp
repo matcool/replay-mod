@@ -76,8 +76,6 @@ void ReplaySystem::handle_playing() {
                 ++action_index;
             }
         }
-        if (action_index >= actions.size())
-            toggle_playing();
     }
 }
 
@@ -96,6 +94,7 @@ auto _create_status_label(CCLayer* layer) {
 }
 
 void ReplaySystem::update_status_label() {
+    return;
     auto play_layer = gd::GameManager::sharedState()->getPlayLayer();
     if (play_layer) {
         auto label = cast<CCLabelBMFont*>(play_layer->getChildByTag(STATUS_LABEL_TAG));
@@ -117,4 +116,18 @@ void ReplaySystem::update_status_label() {
     } else if (recorder.m_recording) {
         recorder.stop();
     }
+}
+
+void ReplaySystem::reset_state(bool save) {
+    if (save && is_recording()) push_current_replay();
+    state = NOTHING;
+    frame_advance = false;
+    update_frame_offset();
+    update_status_label();
+}
+
+std::filesystem::path ReplaySystem::get_replays_path() {
+    char buffer[MAX_PATH];
+    GetModuleFileNameA(GetModuleHandle(NULL), buffer, MAX_PATH);
+    return std::filesystem::path(buffer).parent_path() / "matreplays";
 }

@@ -39,9 +39,11 @@ target_include_directories(replay-mod PRIVATE
   libraries/cocos-headers/cocos2dx/platform/third_party/win32
   libraries/cocos-headers/cocos2dx/platform/third_party/win32/OGLES
   libraries/cocos-headers/extensions/
+  libraries
 )
 
 add_subdirectory(libraries/minhook)
+add_subdirectory(libraries/fmtlib)
 
 target_link_libraries(replay-mod
   minhook
@@ -49,4 +51,5 @@ target_link_libraries(replay-mod
   ${CMAKE_SOURCE_DIR}/libraries/cocos-headers/extensions/libExtensions.lib
   opengl32
   ${CMAKE_SOURCE_DIR}/libraries/glew32.lib
+  fmt
 )

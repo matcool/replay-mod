@@ -51,12 +51,40 @@ void Hooks::CCKeyboardDispatcher_dispatchKeyboardMSG(CCKeyboardDispatcher* self,
     if (down) {
         auto play_layer = gd::GameManager::sharedState()->getPlayLayer();
         if (rs.is_recording() && play_layer) {
+            static CCSet* things = nullptr;
             if (key == 'C') {
-                rs.set_frame_advance(false);
-                PlayLayer::update(play_layer, 1.f / rs.get_default_fps());
-                rs.set_frame_advance(true);
+                // rs.set_frame_advance(false);
+                // PlayLayer::update(play_layer, 1.f / rs.get_default_fps());
+                // rs.set_frame_advance(true);
+                auto director = CCDirector::sharedDirector();
+                // play_layer->resumeSchedulerAndActions();
+                // director->getRunningScene()->resumeSchedulerAndActions();
+                if (things) {
+                    CCDirector::sharedDirector()->getScheduler()->resumeTargets(things);
+                    std::cout << "resuming" << std::endl;
+                    things->release();
+                    things = nullptr;
+                }
+                // this sometimes doesnt run next frame
+                constexpr const auto selector = [](CCObject* self, float d) {
+                    // if (auto play_layer = gd::GameManager::sharedState()->getPlayLayer())
+                    //     play_layer->pauseSchedulerAndActions();
+                    things = CCDirector::sharedDirector()->getScheduler()->pauseAllTargetsWithMinPriority(kCCPrioritySystem);
+                    std::cout << "pausing " << things->count() << std::endl;
+                    things->retain();
+                    // CCDirector::sharedDirector()->getRunningScene()->pauseSchedulerAndActions();
+                };
+                director->getScheduler()->scheduleSelector(union_cast<SEL_SCHEDULE>(thiscall<void(CCObject*, float)>::wrap<selector>),
+                CCDirector::sharedDirector(), 0.f, 1, 0.f, false);
             } else if (key == 'F') {
-                rs.set_frame_advance(false);
+                // rs.set_frame_advance(false);
+                // CCDirector::sharedDirector()->getRunningScene()->resumeSchedulerAndActions();
+                // play_layer->resumeSchedulerAndActions();
+                if (things) {
+                    CCDirector::sharedDirector()->getScheduler()->resumeTargets(things);
+                    things->release();
+                    things = nullptr;
+                }
             } else if (key == 'R') {
                 PlayLayer::resetLevel(play_layer);
             }
@@ -125,7 +153,7 @@ CCObject* Hooks::CheckpointObject_create() {
 }
 
 void Hooks::PlayLayer::levelComplete(gd::PlayLayer* self) {
-    ReplaySystem::get_instance().reset_state();
+    ReplaySystem::get_instance().reset_state(true);
     return orig<&levelComplete>(self);
 }
 
@@ -157,7 +185,7 @@ bool Hooks::PauseLayer_init(gd::PauseLayer* self) {
         auto btn = gd::CCMenuItemSpriteExtra::create(sprite, self, menu_selector(OverlayLayer::open_btn_callback));
         menu->addChild(btn);
         
-        auto label = CCLabelBMFont::create("ReplayBot", "bigFont.fnt");
+        auto label = CCLabelBMFont::create("Save replays", "bigFont.fnt");
         label->setAnchorPoint({0, 0.5});
         label->setScale(0.5f);
         label->setPositionX(20);
@@ -227,9 +255,41 @@ bool Hooks::PlayLayer::init(gd::PlayLayer* self, gd::GJGameLevel* lvl) {
 
 void PlayerObject_playerDestroyed(gd::PlayerObject* self, bool idk) {
     orig<&PlayerObject_playerDestroyed>(self, idk);
-    auto& rs = ReplaySystem::get_instance();
-    if (rs.is_recording()) {
-        rs.push_current_replay();
+    auto play_layer = gd::GameManager::sharedState()->getPlayLayer();
+    if (play_layer && self != play_layer->m_player2) {
+        auto& rs = ReplaySystem::get_instance();
+        if (rs.is_recording()) {
+            // TODO: support start pos
+            // prob not going to support checkpoints, but maybe
+            if (!play_layer->m_isPracticeMode && !play_layer->m_isTestMode) {
+                std::cout << "pushing" << std::endl;
+                // TODO: maybe move this over to the replay class
+                rs.get_replay().died_at = self->m_position.x / play_layer->m_levelLength * 100.f;
+                rs.get_replay().level_name = play_layer->m_level->levelName;
+                rs.get_replay().created_at = std::chrono::system_clock::now();
+                rs.push_current_replay();
+            }
+        } else if (rs.is_playing()) {
+            auto director = CCDirector::sharedDirector();
+            // i have to run this next frame as the action is created after the call to playerDestroyed
+            constexpr const auto selector = [](CCObject* self, float d) {
+                auto play_layer = cast<gd::PlayLayer*>(self);
+                // stop the auto retry action
+                play_layer->stopActionByTag(16);
+                constexpr const auto call_selector = [](CCObject* self) {
+                    auto play_layer = cast<gd::PlayLayer*>(self);
+                    auto label = CCLabelBMFont::create("u suck", "bigFont.fnt");
+                    label->setPosition(200, 200);
+                    play_layer->addChild(label);
+                    CCDirector::sharedDirector()->getOpenGLView()->showCursor(true);
+                    gd::FLAlertLayer::create(nullptr, "ratio", "ok", nullptr, "u died llll")->show();
+                };
+                auto action = CCCallFunc::create(play_layer, union_cast<SEL_CallFunc>(thiscall<void(CCObject*)>::wrap<call_selector>));
+                play_layer->runAction(CCSequence::createWithTwoActions(CCDelayTime::create(0.5f), action));
+            };
+            director->getScheduler()->scheduleSelector(union_cast<SEL_SCHEDULE>(thiscall<void(CCObject*, float)>::wrap<selector>),
+                play_layer, 0.f, 0, 0.f, false);
+        }
     }
 }
 
@@ -240,7 +300,7 @@ auto cocos(const char* symbol) {
 
 void Hooks::init() {
     add_hook<&CCScheduler_update, Thiscall>(cocos("?update@CCScheduler@cocos2d@@UAEXM@Z"));
-    add_hook<&CCKeyboardDispatcher_dispatchKeyboardMSG>(cocos("?dispatchKeyboardMSG@CCKeyboardDispatcher@cocos2d@@QAE_NW4enumKeyCodes@2@_N@Z"));
+    // add_hook<&CCKeyboardDispatcher_dispatchKeyboardMSG>(cocos("?dispatchKeyboardMSG@CCKeyboardDispatcher@cocos2d@@QAE_NW4enumKeyCodes@2@_N@Z"));
     // add_hook<&CheckpointObject_create, Optfastcall>(gd::base + 0x20ddd0);
 
     add_hook<&PlayLayer::init>(gd::base + 0x1fb780);

@@ -4,11 +4,9 @@
 #include <Windows.h>
 
 #include <MinHook.h>
+#define CC_DLL
 #include <gd.h>
-
-#pragma warning(push, 0)
-#include <cocos2d.h>
 using namespace cocos2d;
-#pragma warning(pop)
+
 
 #include "utils.hpp"

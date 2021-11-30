@@ -55,6 +55,11 @@ void ReplaySystem::on_reset() {
 }
 
 void ReplaySystem::push_current_replay() {
+    // TODO: maybe move this over to the replay class
+    auto play_layer = gd::GameManager::sharedState()->getPlayLayer();
+    replay.died_at = play_layer->m_hasCompletedLevel ? 100.f : play_layer->m_player1->m_position.x / play_layer->m_levelLength * 100.f;
+    replay.level_name = play_layer->m_level->levelName;
+    replay.created_at = std::chrono::system_clock::now();
     temp_replays.push_back(std::make_shared<Replay>(replay));
     if (temp_replays.size() > 5)
         temp_replays.erase(temp_replays.begin());

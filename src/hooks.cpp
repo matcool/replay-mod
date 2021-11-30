@@ -153,8 +153,8 @@ CCObject* Hooks::CheckpointObject_create() {
 }
 
 void Hooks::PlayLayer::levelComplete(gd::PlayLayer* self) {
+    orig<&levelComplete>(self);
     ReplaySystem::get_instance().reset_state(true);
-    return orig<&levelComplete>(self);
 }
 
 void _on_exit_level() {
@@ -263,10 +263,6 @@ void PlayerObject_playerDestroyed(gd::PlayerObject* self, bool idk) {
             // prob not going to support checkpoints, but maybe
             if (!play_layer->m_isPracticeMode && !play_layer->m_isTestMode) {
                 std::cout << "pushing" << std::endl;
-                // TODO: maybe move this over to the replay class
-                rs.get_replay().died_at = self->m_position.x / play_layer->m_levelLength * 100.f;
-                rs.get_replay().level_name = play_layer->m_level->levelName;
-                rs.get_replay().created_at = std::chrono::system_clock::now();
                 rs.push_current_replay();
             }
         } else if (rs.is_playing()) {

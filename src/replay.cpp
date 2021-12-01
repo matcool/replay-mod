@@ -98,7 +98,7 @@ Replay Replay::load(const std::string& path)  {
 				replay.level_id = bin_read<int>(file);
 				auto length = bin_read<size_t>(file);
 				replay.level_name.resize(length, 'A');
-				file.read(replay.level_name.data(), length);				
+				file.read(replay.level_name.data(), length);
 			}
 			size_t left = file_size - static_cast<size_t>(file.tellg());
 			float x;

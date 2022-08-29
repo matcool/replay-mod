@@ -22,12 +22,19 @@ public:
 
     GEN_CREATE(TextInputNode)
 
-    bool init(CCSize size, float scale = 1.f, const std::string& font = "bigFont.fnt") {
+    bool init(CCSize size, float scale = 1.f, const std::string& placeholder = "", const std::string& font = "bigFont.fnt", bool anchor_left = false) {
         if (!CCNode::init()) return false;
 
-        input_node = gd::CCTextInputNode::create("", this, font.c_str(), size.width, size.height);
+        input_node = gd::CCTextInputNode::create(placeholder.c_str(), this, font.c_str(), size.width, size.height);
         input_node->setDelegate(this);
         addChild(input_node);
+
+        if (anchor_left) {
+            // um nice hardcoded 10.f
+            input_node->setPosition(-size.width / 2.f + 10.f, 0.f);
+            input_node->getPlaceholderLabel()->setAnchorPoint(ccp(0.f, 0.5f));
+            input_node->m_pTextField->setAnchorPoint(ccp(0.f, 0.5f));
+        }
 
         background = extension::CCScale9Sprite::create("square02_small.png");
         background->setContentSize(size * scale);
@@ -38,6 +45,8 @@ public:
 
         return true;
     }
+
+
 
     virtual void textChanged(gd::CCTextInputNode*) { callback(this); }
 
@@ -80,6 +89,9 @@ public:
 
     operator T*() { return end(); }
 
+    inline auto& setPosition(float x, float y) { return this->setPosition(ccp(x, y)); }
+    inline auto& setScale(float x, float y) { end()->setScaleX(x); end()->setScaleY(y); return *this; }
+
     #define _gen_func(name) template <typename... Args> \
     inline auto& name(Args... args) { \
         reinterpret_cast<T*>(this)->name(args...); \
@@ -95,8 +107,15 @@ public:
     _gen_func(addChild)
     _gen_func(setTag)
     _gen_func(setAlignment)
+    _gen_func(setColor)
 
     #undef _gen_func
+
+    template <class Func>
+    auto& with(const Func& function) {
+        function(reinterpret_cast<T*>(this));
+        return *this;
+    }
 };
 
 template <typename T>

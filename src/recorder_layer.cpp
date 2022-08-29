@@ -114,7 +114,7 @@ bool RecorderLayer::init() {
 
     const std::string broad_filter = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ.,;-_=+@!\":0123456789$[](){} ";
 
-    auto text_input = TextInputNode::create(CCSize(60.f, 30.f), 1.f, "chatFont.fnt");
+    auto text_input = TextInputNode::create(CCSize(60.f, 30.f), 1.f, "", "chatFont.fnt");
     text_input->setPosition(top_left + ccp(291.5f, -177.f));
     text_input->input_node->setAllowedChars(broad_filter);
     text_input->set_value(rs.recorder.m_bitrate);
@@ -123,7 +123,7 @@ bool RecorderLayer::init() {
     };
     layer->addChild(text_input);
 
-    text_input = TextInputNode::create(CCSize(60.f, 30.f), 1.f, "chatFont.fnt");
+    text_input = TextInputNode::create(CCSize(60.f, 30.f), 1.f, "", "chatFont.fnt");
     text_input->setPosition(top_left + ccp(359.5f, -177.f));
     text_input->input_node->m_sCaption = "Default";
     text_input->input_node->setAllowedChars(broad_filter);
@@ -134,7 +134,7 @@ bool RecorderLayer::init() {
     };
     layer->addChild(text_input);
 
-    text_input = TextInputNode::create(CCSize(128.f, 30.f), 1.f, "chatFont.fnt");
+    text_input = TextInputNode::create(CCSize(128.f, 30.f), 1.f, "", "chatFont.fnt");
     text_input->setPosition(top_left + ccp(324.5f, -217.f));
     text_input->input_node->m_sCaption = "Extra options";
     text_input->input_node->setAllowedChars(broad_filter);

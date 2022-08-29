@@ -274,11 +274,11 @@ void PlayerObject_playerDestroyed(gd::PlayerObject* self, bool idk) {
                 play_layer->stopActionByTag(16);
                 constexpr const auto call_selector = [](CCObject* self) {
                     auto play_layer = cast<gd::PlayLayer*>(self);
-                    auto label = CCLabelBMFont::create("u suck", "bigFont.fnt");
-                    label->setPosition(200, 200);
-                    play_layer->addChild(label);
+                    // auto label = CCLabelBMFont::create("u suck", "bigFont.fnt");
+                    // label->setPosition(200, 200);
+                    // play_layer->addChild(label);
                     CCDirector::sharedDirector()->getOpenGLView()->showCursor(true);
-                    gd::FLAlertLayer::create(nullptr, "ratio", "ok", nullptr, "u died llll")->show();
+                    gd::FLAlertLayer::create(nullptr, "info", "ok", nullptr, "replay died")->show();
                 };
                 auto action = CCCallFunc::create(play_layer, union_cast<SEL_CallFunc>(thiscall<void(CCObject*)>::wrap<call_selector>));
                 play_layer->runAction(CCSequence::createWithTwoActions(CCDelayTime::create(0.5f), action));

@@ -184,3 +184,7 @@ public:
     auto size() { return m_dict->count(); }
     T operator[](K key) { return reinterpret_cast<T>(m_dict->objectForKey(key)); }
 };
+
+inline CCRect make_rect(const CCPoint& origin, const CCSize& size) {
+    return CCRect(origin.x, origin.y, size.width, size.height);
+}

@@ -32,10 +32,7 @@ public:
     
     virtual void keyBackClicked();
     
-    void gen_widgets();
-
     void on_view(CCObject*);
-    void on_scroll_arrow(CCObject*);
 
     CCNode* make_widget(size_t index);
 };

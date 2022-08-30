@@ -45,7 +45,7 @@ target_include_directories(replay-mod PRIVATE
 add_subdirectory(libraries/minhook)
 add_subdirectory(libraries/fmtlib)
 
-target_compile_definitions(replay-mod PRIVATE NOMINMAX)
+target_compile_definitions(replay-mod PRIVATE NOMINMAX CC_DLL=)
 
 target_link_libraries(replay-mod
   minhook

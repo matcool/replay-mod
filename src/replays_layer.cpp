@@ -6,6 +6,10 @@
 #include "log.hpp"
 #include <functional>
 #include <deque>
+#include "nodes/infinite-list.hpp"
+#define FTS_FUZZY_MATCH_IMPLEMENTATION
+#include <fts_fuzzy_match.h>
+#include <date_utils.hpp>
 
 static constexpr float widget_width = 350;
 static constexpr float widget_height = 65;
@@ -14,176 +18,9 @@ static constexpr float search_bar_height = 40;
 
 static constexpr float total_height = widget_height * 3.f + search_bar_height;
 
-CCRect make_rect(const CCPoint& origin, const CCSize& size) {
-    return CCRect(origin.x, origin.y, size.width, size.height);
-}
-
-class InfiniteListLayer : public CCLayer {
-public:
-    static auto* create(float width, float height, float cell_height, std::function<CCNode*(size_t index)> provider, size_t size) {
-        // FIXME:
-        // TODO:
-        auto obj = new InfiniteListLayer;
-        obj->init(width, height, cell_height, provider, size);
-        obj->autorelease();
-        return obj;
-    }
-
-    float m_scroll_offset = 0.f; // should never be less than 0
-    size_t m_current_index = 0;
-    float m_cell_height = 100.f; // how big each cell should be
-    std::deque<CCNode*> m_nodes;
-    std::function<CCNode*(size_t index)> m_cell_provider; // returns the cell for an index, returns nullptr if no more
-    size_t m_max_cells;
-    float m_velocity = 0.f;
-    CCClippingNode* m_clipping;
-
-    size_t size;
-
-    bool init(float width, float height, float cell_height, std::function<CCNode*(size_t index)> provider, size_t size) {
-        if (!CCLayer::init()) return false;
-
-        m_cell_height = cell_height;
-        m_cell_provider = provider;
-        this->size = size;
-
-        // max number of cells on screen
-        const auto max_cells = static_cast<size_t>(height / cell_height) + 1;
-        m_max_cells = max_cells;
-
-        m_clipping = CCClippingNode::create(CCLayerColor::create(ccc4(0, 0, 0, 255), width, height));
-        this->addChild(m_clipping);
-
-        this->setContentSize({ width, height });
-        this->setup();
-
-        this->setTouchEnabled(true);
-        this->setMouseEnabled(true);
-        return true;
-    }
-
-    static constexpr int INFINITE_LIST_TOUCH_TAG = 4469;
-
-    void ccTouchesBegan(CCSet* touches, CCEvent* event) override {
-        auto* touch = static_cast<CCTouch*>(touches->anyObject());
-        if (!touch) return;
-        const auto pos = touch->getLocation();
-        if (make_rect(this->getPosition(), this->getContentSize()).containsPoint(pos)) {
-            touch->setTag(INFINITE_LIST_TOUCH_TAG);
-            this->unscheduleUpdate();
-        }
-    }
-
-    void ccTouchesMoved(CCSet* touches, CCEvent* event) override {
-        auto* touch = static_cast<CCTouch*>(touches->anyObject());
-        if (!touch) return;
-        if (touch->getTag() == INFINITE_LIST_TOUCH_TAG) {
-            const auto pos = touch->getLocation();
-            const auto prev = touch->getPreviousLocation();
-            m_velocity = pos.y - prev.y;
-            m_scroll_offset += m_velocity;
-            this->update_list();
-        }
-    }
-
-    void scrollWheel(float dy, float) override {
-        logln("scroll {}", dy);
-        m_scroll_offset += dy * 1.5f;
-        this->update_list();
-    }
-
-    void ccTouchesEnded(CCSet* touches, CCEvent* event) override {
-        auto* touch = static_cast<CCTouch*>(touches->anyObject());
-        if (!touch) return;
-        if (touch->getTag() == INFINITE_LIST_TOUCH_TAG) {
-            // m_velocity set from last time touches moved was called
-            this->scheduleUpdate();
-        }
-    }
-
-    void update(float dt) override {
-        m_scroll_offset += m_velocity * 80.f * dt;
-        // this took a lot of brain power to think of
-        m_velocity *= powf(0.01f, dt);
-        this->update_list();
-        if (fabs(m_velocity) <= 0.2f) {
-            m_velocity = 0.f;
-            this->unscheduleUpdate();
-        }
-    }
-
-    void update_list() {
-        if (m_scroll_offset < 0.f) m_scroll_offset = 0.f;
-
-        // TODO: fix being able to skip more than one index at a time
-
-        const auto new_index = static_cast<size_t>(m_scroll_offset / m_cell_height);
-        const auto max_index = m_max_cells - 1 > this->size ? 0 : this->size - (m_max_cells - 1);
-        if (max_index == 0) {
-            m_scroll_offset = 0.f;
-        } else if (new_index != m_current_index) {
-            const bool went_down = new_index > m_current_index;
-            // index of new item to fetch
-            const auto new_item_index = went_down ? new_index + m_max_cells - 1 : new_index;
-            if (new_item_index >= this->size) {
-                m_scroll_offset = max_index * m_cell_height;
-            } else {
-                // m_nodes shouldnt be empty, if it was then the new item index would be greater than the size (0)
-                if (went_down) {
-                    m_nodes.front()->removeAllChildrenWithCleanup(true);
-                    m_nodes.pop_front();
-                } else {
-                    m_nodes.back()->removeAllChildrenWithCleanup(true);
-                    m_nodes.pop_back();
-                }
-
-                auto* new_node = m_cell_provider(new_item_index);
-                m_clipping->addChild(new_node);
-                if (went_down) {
-                    m_nodes.push_back(new_node);
-                } else {
-                    m_nodes.push_front(new_node);
-                }
-                m_current_index = new_index;
-            }
-        }
-
-        const auto size = this->getContentSize();
-        const float y = size.height - m_cell_height / 2.f + (m_scroll_offset - m_current_index * m_cell_height);
-        for (size_t i = 0; i < m_nodes.size(); ++i) {
-            m_nodes[i]->setPosition(ccp(
-                size.width / 2.f,
-                y - m_cell_height * static_cast<float>(i) 
-            ));
-        }
-    }
-
-    void setup() {
-        m_current_index = 0;
-        m_scroll_offset = 0;
-        const auto size = this->getContentSize();
-        for (size_t i = 0; i < std::min(this->size, m_max_cells); ++i) {
-            auto* cell = m_cell_provider(i);
-            if (!cell) break;
-            m_nodes.push_back(cell);
-            m_clipping->addChild(cell);
-
-            cell->setPosition(ccp(size.width / 2.f, size.height - m_cell_height / 2.f - m_cell_height * static_cast<float>(i)));
-        }
-    }
-
-    void reset() {
-        m_clipping->removeAllChildrenWithCleanup(true);
-        m_nodes.clear();
-        this->setup();
-    }
-};
-
-
 bool ReplaysLayer::init() {
     if (!CCLayer::init()) return false;
     auto& rs = ReplaySystem::get_instance();
-    // auto saved_levels = AwesomeDict<std::string, gd::GJGameLevel*>(gd::GameLevelManager::sharedState()->m_onlineLevels);
     for (const auto& entry : std::filesystem::directory_iterator(rs.get_replays_path())) {
         const auto& path = entry.path();
         if (std::filesystem::is_regular_file(path) && path.extension() == ".replay") {
@@ -242,16 +79,20 @@ bool ReplaysLayer::init() {
         // TODO: fuzzy search into filtered_replays
         // and make gen_widget care abt it
         text_input->callback = [&](TextInputNode* input) {
-            // this->filter = input->get_value();
-            // this->filtered_replays.clear();
-            // for (auto& replay : this->replays) {
-            //     // dont look at this next line
-            //     if (replay.level_name._Starts_with(this->filter)) {
-            //         this->filtered_replays.push_back(replay);
-            //     }
-            // }
-            // this->list->size = this->filtered_replays.size();
-            // this->list->reset();
+            this->filter = input->get_value();
+            this->filtered_replays.clear();
+            if (this->filter.empty()) {
+                this->list->size = this->replays.size();
+            } else {
+                for (auto& replay : this->replays) {
+                    int score;
+                    if (fts::fuzzy_match(this->filter.c_str(), fmt::format("{} {}%", replay.level_name, int(replay.died_at)).c_str(), score)) {
+                        this->filtered_replays.push_back(replay);
+                    }
+                }
+                this->list->size = this->filtered_replays.size();
+            }
+            this->list->reset();
         };
         addChild(text_input);
     }
@@ -348,6 +189,14 @@ CCNode* ReplaysLayer::make_widget(size_t index) {
         .setScale(0.6f)
     );
 
+
+    // why are you always zero..
+    // auto online_levels = AwesomeDict<std::string, gd::GJGameLevel*>(gd::GameLevelManager::sharedState()->m_onlineLevels);
+    // auto* level = online_levels[fmt::format("{}", replay.level_id)]; // gotta love robtop
+    // if (level) {
+    //     logln("{}: {}", replay.level_name, level->difficulty);
+    // }
+
     // difficulty icon
     node->addChild(
         NodeFactory<CCSprite>::start(CCSprite::createWithSpriteFrameName("diffIcon_06_btn_001.png"))
@@ -355,94 +204,47 @@ CCNode* ReplaysLayer::make_widget(size_t index) {
         .setScale(1.1f)
     );
 
-    // timestamp
-    node->addChild(
-        NodeFactory<CCLabelBMFont>::start("2022-08-27 16:21", "chatFont.fnt")
-        .setPosition(ccp(widget_width / 2.f - 3.f, -widget_height / 2.f + 3.f))
-        .setScale(0.6f)
-        .setAnchorPoint(ccp(1.f, 0.f))
-        .setColor(ccc3(220, 220, 220))
-    );
+    // i forgot to add created_at to the replay file..
+    // // timestamp
+    // const auto date = date_info::from_point(replay.created_at);
+    // const auto timestamp = fmt::format("{}-{:02}-{:02} {:02}:{:02}", date.year, date.month, date.day, date.hour, date.minutes, date.seconds);
+
+    // node->addChild(
+    //     NodeFactory<CCLabelBMFont>::start(timestamp.c_str(), "chatFont.fnt")
+    //     .setPosition(ccp(widget_width / 2.f - 3.f, -widget_height / 2.f + 3.f))
+    //     .setScale(0.6f)
+    //     .setAnchorPoint(ccp(1.f, 0.f))
+    //     .setColor(ccc3(220, 220, 220))
+    // );
 
     return node;
 }
-
 
 void ReplaysLayer::keyBackClicked() {
     CCDirector::sharedDirector()->popSceneWithTransition(0.5f, PopTransition::kPopTransitionFade);
 }
 
 void ReplaysLayer::on_view(CCObject* sender) {
-    auto btn = cast<gd::CCMenuItemSpriteExtra*>(sender);
-    const auto i = static_cast<size_t>(btn->getTag());
-    auto& rs = ReplaySystem::get_instance();
-    if (i >= replays.size()) return;
-    auto& replay = replays[i];
-    auto d = AwesomeDict<std::string, gd::GJGameLevel*>(gd::GameLevelManager::sharedState()->m_onlineLevels);
-    auto lvl = d[std::to_string(replay.level_id)];
-    if (lvl && !lvl->levelNotDownloaded) {
+    auto btn = static_cast<gd::CCMenuItemSpriteExtra*>(sender);
+    const auto index = static_cast<size_t>(btn->getTag());
+    if (index >= replays.size()) return;
+
+    const Replay& replay = this->filter.empty() ? replays[index] : filtered_replays[index];
+    
+    auto online_levels = AwesomeDict<std::string, gd::GJGameLevel*>(gd::GameLevelManager::sharedState()->m_onlineLevels);
+    auto lvl = online_levels[std::to_string(replay.level_id)];
+    // sorry levels with empty level string but its a much easier way to check
+    if (lvl && !lvl->levelNotDownloaded && !lvl->levelString.empty()) {
+        auto& rs = ReplaySystem::get_instance();
         rs.get_replay() = replay;
         rs.toggle_playing();
+
         auto layer = gd::PlayLayer::create(lvl);
         layer->m_isTestMode = true; // ez safe mode
         rs.update_status_label();
+        
         CCDirector::sharedDirector()->pushScene(NodeFactory<CCScene>::start().addChild(layer));
-    }
-}
-
-void ReplaysLayer::gen_widgets() {
-    // if (widgets)
-    //     widgets->removeAllChildrenWithCleanup(true);
-    // else {
-    //     widgets = CCNode::create();
-    //     widgets->setPosition(ccp(0, 0));
-    //     addChild(widgets);
-    // }
-
-    // const auto win_size = CCDirector::sharedDirector()->getWinSize();
-    // float y = win_size.height - 90;
-    
-    // for (auto& [i, replay] : enumerate(replays)) {
-    //     if (i < scroll || i > scroll + 2) continue;
-    //     auto widget = CCNode::create();
-    //     widget->addChild(NodeFactory<extension::CCScale9Sprite>::start("GJ_square01.png").setContentSize(ccp(400, 60)));
-    //     widget->setPosition(280, y);
-    //     auto menu = CCMenu::create();
-    //     widget->addChild(menu);
-    //     menu->setPosition(0, 0);
-
-    //     menu->addChild(
-    //         NodeFactory<gd::CCMenuItemSpriteExtra>::start(
-    //             gd::ButtonSprite::create("see", 50, false, "goldFont.fnt", "GJ_button_01.png", 0, 1.f), this, menu_selector(ReplaysLayer::on_view))
-    //         .setPosition(152.f, 0.f)
-    //         .setTag(i)
-    //     );
-
-    //     widget->addChild(
-    //         NodeFactory<CCLabelBMFont>::start(fmt::format("{}\n{}%", replay.level_name, int(replay.died_at)).c_str(), "bigFont.fnt")
-    //         .setPosition(-185, 0)
-    //         .setScale(0.4f)
-    //         .setAnchorPoint(ccp(0, 0.5f))
-    //         .setAlignment(kCCTextAlignmentLeft)
-    //     );
-
-    //     widgets->addChild(widget);
-
-    //     y -= 70.f;
-    // }
-}
-
-template <class T, class U, class V>
-inline T clamp(const T value, const U lower, const V upper) {
-    return value > upper ? upper : value < lower ? lower : value;
-}
-
-void ReplaysLayer::on_scroll_arrow(CCObject* sender) {
-    bool down = cast<CCNode*>(sender)->getTag() == 1;
-    auto new_scroll = clamp(int(scroll) + (down * 2 - 1), 0, int(replays.size()) - 1);
-    if (scroll != new_scroll) {
-        scroll = new_scroll;
-        logln("scrolling to {}", scroll);
-        gen_widgets();
+    } else {
+        gd::FLAlertLayer::create(nullptr, "Error", "OK", nullptr, "Level not found or not downloaded, unable to play replay")->show();
     }
 }

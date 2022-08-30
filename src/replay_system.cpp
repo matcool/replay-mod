@@ -133,6 +133,9 @@ void ReplaySystem::reset_state(bool save) {
 
 std::filesystem::path ReplaySystem::get_replays_path() {
     char buffer[MAX_PATH];
-    GetModuleFileNameA(GetModuleHandle(NULL), buffer, MAX_PATH);
-    return std::filesystem::path(buffer).parent_path() / "matreplays";
+    GetModuleFileNameA(GetModuleHandle(nullptr), buffer, MAX_PATH);
+    const auto path = std::filesystem::path(buffer).parent_path() / "matreplays";
+    // ensure folder exists
+    std::filesystem::create_directory(path);
+    return path;
 }

@@ -6,6 +6,10 @@
 class ReplaysLayer : public CCLayer {
 public:
     std::vector<Replay> replays;
+    class InfiniteListLayer* list;
+    // great design mat
+    std::string filter;
+    std::vector<std::reference_wrapper<Replay>> filtered_replays;
     size_t scroll = 0;
     CCNode* widgets = nullptr;
 

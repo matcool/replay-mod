@@ -45,6 +45,8 @@ target_include_directories(replay-mod PRIVATE
 add_subdirectory(libraries/minhook)
 add_subdirectory(libraries/fmtlib)
 
+target_compile_definitions(replay-mod PRIVATE NOMINMAX)
+
 target_link_libraries(replay-mod
   minhook
   ${CMAKE_SOURCE_DIR}/libraries/cocos-headers/cocos2dx/libcocos2d.lib

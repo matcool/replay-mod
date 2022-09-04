@@ -5,11 +5,12 @@
 using namespace cocos2d;
 
 InfiniteListLayer* InfiniteListLayer::create(float width, float height, float cell_height, std::function<CCNode*(size_t index)> provider, size_t size) {
-    // FIXME:
-    // TODO:
     auto obj = new InfiniteListLayer;
-    obj->init(width, height, cell_height, provider, size);
-    obj->autorelease();
+    if (obj && obj->init(width, height, cell_height, provider, size)) {
+        obj->autorelease();
+    } else {
+        CC_SAFE_DELETE(obj);
+    }    
     return obj;
 }
 

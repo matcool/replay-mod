@@ -89,17 +89,21 @@ public:
 
     operator T*() { return end(); }
 
+    inline auto& setPosition(const CCPoint p) { end()->setPosition(p); return *this; }
     inline auto& setPosition(float x, float y) { return this->setPosition(ccp(x, y)); }
-    inline auto& setScale(float x, float y) { end()->setScaleX(x); end()->setScaleY(y); return *this; }
+    inline auto& setScale(float x, float y) { return this->setScaleX(x).setScaleY(y); }
+    inline auto& setScale(float x) { end()->setScale(x); return *this; }
 
     #define _gen_func(name) template <typename... Args> \
     inline auto& name(Args... args) { \
-        reinterpret_cast<T*>(this)->name(args...); \
+        end()->name(args...); \
         return *this; \
     }
 
-    _gen_func(setPosition)
-    _gen_func(setScale)
+    // _gen_func(setPosition)
+    // _gen_func(setScale)
+    _gen_func(setScaleX)
+    _gen_func(setScaleY)
     _gen_func(setContentSize)
     _gen_func(setOpacity)
     _gen_func(setZOrder)
@@ -108,6 +112,8 @@ public:
     _gen_func(setTag)
     _gen_func(setAlignment)
     _gen_func(setColor)
+    _gen_func(limitLabelWidth)
+    _gen_func(setUserObject)
 
     #undef _gen_func
 
@@ -117,6 +123,11 @@ public:
         return *this;
     }
 };
+
+template <class T>
+auto& make_factory(T* node) {
+    return NodeFactory<T>::start(node);
+}
 
 template <typename T>
 struct enumerator_iterator {
@@ -187,4 +198,18 @@ public:
 
 inline CCRect make_rect(const CCPoint& origin, const CCSize& size) {
     return CCRect(origin.x, origin.y, size.width, size.height);
+}
+
+// gets mouse coordinates in cocos2d coords
+inline CCPoint get_mouse_pos() {
+    auto* director = CCDirector::sharedDirector();
+    auto* view = director->getOpenGLView();
+    const auto win_size = director->getWinSize();
+    auto mouse_pos = view->getMousePosition() / view->getFrameSize() * win_size;
+    mouse_pos.y = win_size.height - mouse_pos.y;
+    return mouse_pos;
+}
+
+inline void set_menu_size(CCMenu* menu) {
+    menu->setContentSize(static_cast<CCNode*>(menu->getChildren()->objectAtIndex(0))->getScaledContentSize());
 }

@@ -5,6 +5,7 @@
 #include <vector>
 #include <memory>
 #include <filesystem>
+#include "log.hpp"
 
 // this is a rly bad name
 enum RSState {
@@ -23,8 +24,6 @@ class ReplaySystem {
     size_t action_index = 0;
 
     PracticeFixes practice_fixes;
-
-    bool frame_advance = false;
 
     ReplaySystem() : default_fps(240.f), replay(default_fps), default_type(replay.get_type()) {}
 
@@ -51,16 +50,15 @@ public:
     void update_status_label();
 
     void toggle_playing() {
+        logln("toggle_playing {}", state);
         state = is_playing() ? NOTHING : PLAYING;
         update_frame_offset();
         update_status_label();
     }
-    void toggle_recording() {
-        state = is_recording() ? NOTHING : RECORDING;
-        if (!is_recording()) frame_advance = false;
-        else replay = Replay(1.f / float(CCDirector::sharedDirector()->getAnimationInterval()), default_type);
-        update_frame_offset();
-        update_status_label();
+    void start_recording();
+    void stop_recording() {
+        logln("stop_recording {}", state);
+        state = NOTHING;
     }
 
     void reset_state(bool save = false);
@@ -76,9 +74,6 @@ public:
 
     inline auto& get_practice_fixes() { return practice_fixes; }
 
-    inline bool get_frame_advance() { return frame_advance; }
-    inline void set_frame_advance(bool b) { frame_advance = b; }
-
     unsigned get_frame();
 
     std::filesystem::path get_replays_path();
@@ -86,4 +81,6 @@ public:
     bool real_time_mode = true; // fuck it we going public
     bool showcase_mode = false;
     Recorder recorder;
+
+    bool record_replays = true;
 };

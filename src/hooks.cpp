@@ -5,6 +5,7 @@
 #include <chrono>
 #include <matdash/minhook.hpp>
 #include "replays_layer.hpp"
+#include "log.hpp"
 
 // yes these are global, too lazy to store them in replaysystem or smth
 // not like theyre used anywhere else atm
@@ -14,13 +15,13 @@ float g_left_over = 0.f;
 void Hooks::CCScheduler_update(CCScheduler* self, float dt) {
     auto& rs = ReplaySystem::get_instance();
     auto play_layer = gd::GameManager::sharedState()->getPlayLayer();
-    if (rs.recorder.m_recording || rs.is_playing() || rs.is_recording() && play_layer) {
+    if (play_layer && (rs.is_playing() || rs.is_recording())) {
         const auto fps = rs.get_replay().get_fps();
         auto speedhack = self->getTimeScale();
 
         const float target_dt = 1.f / fps / speedhack;
 
-        if (!rs.real_time_mode || !play_layer->unk2EC) // isNotFrozen
+        if (!rs.real_time_mode || (!play_layer->unk2EC && dt > 0.1f)) // isNotFrozen
             return orig<&CCScheduler_update, Thiscall>(self, target_dt);
 
         // todo: find ways to disable more render stuff
@@ -46,58 +47,8 @@ void Hooks::CCScheduler_update(CCScheduler* self, float dt) {
     }
 }
 
-void Hooks::CCKeyboardDispatcher_dispatchKeyboardMSG(CCKeyboardDispatcher* self, int key, bool down) {
-    auto& rs = ReplaySystem::get_instance();
-    if (down) {
-        auto play_layer = gd::GameManager::sharedState()->getPlayLayer();
-        if (rs.is_recording() && play_layer) {
-            static CCSet* things = nullptr;
-            if (key == 'C') {
-                // rs.set_frame_advance(false);
-                // PlayLayer::update(play_layer, 1.f / rs.get_default_fps());
-                // rs.set_frame_advance(true);
-                auto director = CCDirector::sharedDirector();
-                // play_layer->resumeSchedulerAndActions();
-                // director->getRunningScene()->resumeSchedulerAndActions();
-                if (things) {
-                    CCDirector::sharedDirector()->getScheduler()->resumeTargets(things);
-                    std::cout << "resuming" << std::endl;
-                    things->release();
-                    things = nullptr;
-                }
-                // this sometimes doesnt run next frame
-                constexpr const auto selector = [](CCObject* self, float d) {
-                    // if (auto play_layer = gd::GameManager::sharedState()->getPlayLayer())
-                    //     play_layer->pauseSchedulerAndActions();
-                    things = CCDirector::sharedDirector()->getScheduler()->pauseAllTargetsWithMinPriority(kCCPrioritySystem);
-                    std::cout << "pausing " << things->count() << std::endl;
-                    things->retain();
-                    // CCDirector::sharedDirector()->getRunningScene()->pauseSchedulerAndActions();
-                };
-                director->getScheduler()->scheduleSelector(union_cast<SEL_SCHEDULE>(thiscall<void(CCObject*, float)>::wrap<selector>),
-                CCDirector::sharedDirector(), 0.f, 1, 0.f, false);
-            } else if (key == 'F') {
-                // rs.set_frame_advance(false);
-                // CCDirector::sharedDirector()->getRunningScene()->resumeSchedulerAndActions();
-                // play_layer->resumeSchedulerAndActions();
-                if (things) {
-                    CCDirector::sharedDirector()->getScheduler()->resumeTargets(things);
-                    things->release();
-                    things = nullptr;
-                }
-            } else if (key == 'R') {
-                PlayLayer::resetLevel(play_layer);
-            }
-        }
-    }
-    orig<&CCKeyboardDispatcher_dispatchKeyboardMSG>(self, key, down);
-}
-
-float g_xpos_time = 0.f;
-
 void Hooks::PlayLayer::update(gd::PlayLayer* self, float dt) {
     auto& rs = ReplaySystem::get_instance();
-    if (rs.get_frame_advance()) return;
     if (rs.is_playing()) rs.handle_playing();
     if (rs.recorder.m_recording) {
         rs.recorder.handle_recording(self, dt);
@@ -154,7 +105,10 @@ CCObject* Hooks::CheckpointObject_create() {
 
 void Hooks::PlayLayer::levelComplete(gd::PlayLayer* self) {
     orig<&levelComplete>(self);
-    ReplaySystem::get_instance().reset_state(true);
+    // TODO: support start pos
+    if (!self->m_isPracticeMode && !self->m_isTestMode) {
+        ReplaySystem::get_instance().reset_state(true);
+    }
 }
 
 void _on_exit_level() {
@@ -173,26 +127,27 @@ void Hooks::PauseLayer_onEditor(gd::PauseLayer* self, CCObject* idk) {
 }
 
 bool Hooks::PauseLayer_init(gd::PauseLayer* self) {
-    if (orig<&PauseLayer_init>(self)) {
-        auto win_size = CCDirector::sharedDirector()->getWinSize();
-        
-        auto menu = CCMenu::create();
-        menu->setPosition(35, win_size.height - 40.f);
-        self->addChild(menu);
-        
-        auto sprite = CCSprite::create("GJ_button_01.png");
-        sprite->setScale(0.72f);
-        auto btn = gd::CCMenuItemSpriteExtra::create(sprite, self, menu_selector(OverlayLayer::open_btn_callback));
-        menu->addChild(btn);
-        
-        auto label = CCLabelBMFont::create("Save replays", "bigFont.fnt");
-        label->setAnchorPoint({0, 0.5});
-        label->setScale(0.5f);
-        label->setPositionX(20);
-        menu->addChild(label);
-        return true;
-    }
-    return false;
+    if (!orig<&PauseLayer_init>(self)) return false;
+    // dont add the button to the pause menu if its playing
+    if (ReplaySystem::get_instance().is_playing()) return true;
+
+    auto win_size = CCDirector::sharedDirector()->getWinSize();
+    
+    auto menu = CCMenu::create();
+    menu->setPosition(35, win_size.height - 40.f);
+    self->addChild(menu);
+    
+    auto sprite = CCSprite::create("GJ_button_01.png");
+    sprite->setScale(0.72f);
+    auto btn = gd::CCMenuItemSpriteExtra::create(sprite, self, menu_selector(OverlayLayer::open_btn_callback));
+    menu->addChild(btn);
+    
+    auto label = CCLabelBMFont::create("Save replays", "bigFont.fnt");
+    label->setAnchorPoint({0, 0.5});
+    label->setScale(0.5f);
+    label->setPositionX(20);
+    menu->addChild(label);
+    return true;
 }
 
 void _handle_activated_object(bool a, bool b, gd::GameObject* object) {
@@ -248,8 +203,12 @@ bool Hooks::PlayLayer::init(gd::PlayLayer* self, gd::GJGameLevel* lvl) {
     if (!orig<&init>(self, lvl)) return false;
     auto& rs = ReplaySystem::get_instance();
     if (!rs.is_playing()) {
-        rs.toggle_recording();
+        if (rs.record_replays)
+            rs.start_recording();
+        else if (rs.is_recording())
+            rs.stop_recording();
     }
+    logln("rs state is {}, {}", rs.is_recording(), rs.is_playing());
     return true;
 }
 
@@ -258,11 +217,11 @@ void PlayerObject_playerDestroyed(gd::PlayerObject* self, bool idk) {
     auto play_layer = gd::GameManager::sharedState()->getPlayLayer();
     if (play_layer && self != play_layer->m_player2) {
         auto& rs = ReplaySystem::get_instance();
+        logln("rs state is {}, {}", rs.is_recording(), rs.is_playing());
         if (rs.is_recording()) {
             // TODO: support start pos
             // prob not going to support checkpoints, but maybe
             if (!play_layer->m_isPracticeMode && !play_layer->m_isTestMode) {
-                std::cout << "pushing" << std::endl;
                 rs.push_current_replay();
             }
         } else if (rs.is_playing()) {
@@ -288,6 +247,26 @@ void PlayerObject_playerDestroyed(gd::PlayerObject* self, bool idk) {
         }
     }
 }
+
+// alk touch dispatcher fixes (just undoing what rob did Lol)
+class CCTouchDispatcherFix : public CCTouchDispatcher {
+public:
+    void addTargetedDelegate_(CCTouchDelegate* delegate, int prio, bool swallowsTouches) {
+        this->setForcePrio(false);
+        if (m_pTargetedHandlers->count() > 0) {
+            auto* handler = static_cast<CCTouchHandler*>(m_pTargetedHandlers->objectAtIndex(0));
+            prio = handler->getPriority() - 2;
+        }
+
+        orig<&CCTouchDispatcherFix::addTargetedDelegate_>(this, delegate, prio, swallowsTouches);
+    }
+    void incrementForcePrio_(int) {
+        this->setForcePrio(false);
+    }
+    void decrementForcePrio_(int) {
+        this->setForcePrio(false);
+    }
+};
 
 auto cocos(const char* symbol) {
     static auto mod = GetModuleHandleA("libcocos2d.dll");
@@ -321,4 +300,8 @@ void Hooks::init() {
     // add_hook<&GJBaseGameLayer_bumpPlayer>(gd::base + 0x10ed50);
     add_hook<&MenuLayer_init>(gd::base + 0x1907b0);
     add_hook<&PlayerObject_playerDestroyed>(gd::base + 0x1efaa0);
+
+    add_hook<&CCTouchDispatcherFix::addTargetedDelegate_>(cocos("?addTargetedDelegate@CCTouchDispatcher@cocos2d@@QAEXPAVCCTouchDelegate@2@H_N@Z"));
+    add_hook<&CCTouchDispatcherFix::incrementForcePrio_>(cocos("?incrementForcePrio@CCTouchDispatcher@cocos2d@@QAEXH@Z"));
+    add_hook<&CCTouchDispatcherFix::decrementForcePrio_>(cocos("?decrementForcePrio@CCTouchDispatcher@cocos2d@@QAEXH@Z"));
 }

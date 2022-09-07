@@ -19,7 +19,7 @@ protected:
     bool init(const std::vector<std::string>& options, Callback callback);
 
     std::vector<std::string> m_options;
-    cocos2d::CCLabelBMFont* m_label;
+    cocos2d::CCLabelBMFont* m_label = nullptr;
     Callback m_callback;
     size_t m_index = 0;
 };

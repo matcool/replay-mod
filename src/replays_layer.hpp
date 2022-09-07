@@ -35,6 +35,8 @@ public:
     void on_view(CCObject*);
 
     CCNode* make_widget(size_t index);
+
+    void on_settings(CCObject*);
 };
 
 class ReplayEndPopup : public gd::FLAlertLayer {

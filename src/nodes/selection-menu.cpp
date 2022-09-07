@@ -53,6 +53,7 @@ bool SelectionMenuPopup::init(const std::vector<std::string>& options, std::func
     this->setTouchPriority(-300);
 
     this->setTouchEnabled(true);
+    this->setKeypadEnabled(true);
 
     this->scheduleUpdate();
 
@@ -70,6 +71,10 @@ bool SelectionMenuPopup::ccTouchBegan(CCTouch* touch, CCEvent*) {
     }
     this->removeFromParentAndCleanup(true);
     return true;
+}
+
+void SelectionMenuPopup::keyBackClicked() {
+    this->removeFromParentAndCleanup(true);
 }
 
 void SelectionMenuPopup::update(float) {

@@ -7,7 +7,6 @@ namespace Hooks {
     void init();
 
     void CCScheduler_update(CCScheduler*, float dt);
-    void CCKeyboardDispatcher_dispatchKeyboardMSG(CCKeyboardDispatcher*, int key, bool down);
     CCObject* CheckpointObject_create();
     
     namespace PlayLayer {

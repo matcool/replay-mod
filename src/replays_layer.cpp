@@ -10,6 +10,9 @@
 #define FTS_FUZZY_MATCH_IMPLEMENTATION
 #include <fts_fuzzy_match.h>
 #include <date_utils.hpp>
+#include "nodes/selection-menu.hpp"
+#include "nodes/dropdown-node.hpp"
+#include "nodes/settings-layer.hpp"
 
 static constexpr float widget_width = 350;
 static constexpr float widget_height = 65;
@@ -134,6 +137,13 @@ bool ReplaysLayer::init() {
 
     gen_table_borders(this, win_size / 2.f, {350, 65 * 3 + 40.f}, 4);
 
+    auto btn = gd::CCMenuItemSpriteExtra::create(
+        CCSprite::createWithSpriteFrameName("GJ_optionsBtn02_001.png"), this, menu_selector(ReplaysLayer::on_settings));
+    auto menu = CCMenu::create();
+    menu->setPosition(win_size - ccp(25.f, 25.f));
+    menu->addChild(btn);
+    this->addChild(menu);
+
     setKeypadEnabled(true);
     return true;
 }
@@ -247,4 +257,71 @@ void ReplaysLayer::on_view(CCObject* sender) {
     } else {
         gd::FLAlertLayer::create(nullptr, "Error", "OK", nullptr, "Level not found or not downloaded, unable to play replay")->show();
     }
+}
+
+class OverlayWrapperLayer : public CCLayerColor {
+public:
+    static auto create(CCNode* child) {
+        auto obj = new OverlayWrapperLayer;
+        if (obj->init(child))
+            obj->autorelease();
+        else
+            CC_SAFE_DELETE(obj);
+        return obj;
+    }
+
+    bool init(CCNode* child) {
+        if (!CCLayerColor::initWithColor(ccc4(0, 0, 0, 100))) return false;
+
+        this->setTouchMode(kCCTouchesOneByOne);
+        this->setTouchEnabled(true);
+
+        this->setKeypadEnabled(true);
+        this->setKeyboardEnabled(true);
+
+        this->addChild(child);
+
+        return true;
+    }
+
+    // might not be needed.. but oh well
+    // this is only for swallowing touches
+    bool ccTouchBegan(CCTouch* touch, CCEvent*) override {
+        return true;
+    }
+
+    void keyBackClicked() override {
+        this->removeFromParentAndCleanup(true);
+    }
+
+    void show() {
+        auto* scene = CCDirector::sharedDirector()->getRunningScene();
+        const int z = scene->getHighestChildZ() + 1;
+        scene->addChild(this, z);
+    }
+};
+
+void ReplaysLayer::on_settings(CCObject*) {
+    auto* settings = SettingsLayer::create(350.f);
+    auto& rs = ReplaySystem::get_instance();
+
+    settings->add_setting("Record replays", settings->checkmark(rs.record_replays, [&rs](CCNode* node) {
+        rs.record_replays = !static_cast<gd::CCMenuItemToggler*>(node)->isOn();
+    }));
+
+    // settings->add_setting("Replay type", settings->picker(rs.get_default_type() == ReplayType::XPOS, { "Frame", "XPos" }, [&rs](auto* picker) {
+    //     rs.set_default_type(picker->get_index() == 0 ? ReplayType::FRAME : ReplayType::XPOS);
+    // }));
+
+    settings->add_setting("Always save completions", settings->checkmark(false, [](CCNode* node) {
+    }));
+
+    settings->add_setting("Save every attempt", settings->checkmark(false, [](CCNode* node) {
+    }));
+
+    // number input, not checkmark
+    settings->add_setting("Replay buffer size", settings->checkmark(false, [](CCNode* node) {
+    }));
+
+    OverlayWrapperLayer::create(settings)->show();
 }

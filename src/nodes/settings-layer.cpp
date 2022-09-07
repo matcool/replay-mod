@@ -17,32 +17,21 @@ bool SettingsLayer::init(float width) {
 
     const auto win_size = CCDirector::sharedDirector()->getWinSize();
 
-    // addChild(
-    //     make_factory(CCSprite::create("GJ_gradientBG.png"))
-    //     .setAnchorPoint(ccp(0, 0))
-    //     .setOpacity(200)
-    //     .setColor(ccc3(100, 100, 255))
-    //     .with([&](auto* node) {
-    //         const auto size = node->getScaledContentSize();
-    //         node->setScaleX(win_size.width / size.width);
-    //         node->setScaleY(win_size.height / size.height);
-    //     })
-    //     .setZOrder(-99)
-    // );
-
     this->width = width;
 
     y = win_size.height - 50.f;
     prev_y = y;
 
-    // this->setKeypadEnabled(true);
+    this->addChild(
+        make_factory(extension::CCScale9Sprite::create("GJ_square05.png"))
+        .setContentSize(CCSize(width + 25.f, win_size.height - 20.f))
+        .setPosition(win_size / 2.f)
+        .setZOrder(-90)
+        .end()
+    );
 
     return true;
 }
-
-// void keyBackClicked() override {
-//     CCDirector::sharedDirector()->popScene();
-// }
 
 void SettingsLayer::add_setting(const std::string& label, CCNode* node) {
     auto label_node = make_factory(CCLabelBMFont::create(label.c_str(), "bigFont.fnt"))

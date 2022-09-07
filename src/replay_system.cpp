@@ -1,5 +1,6 @@
 #include "replay_system.hpp"
 #include "hooks.hpp"
+#include "log.hpp"
 
 void ReplaySystem::record_action(bool hold, bool player1, bool flip) {
     if (is_recording()) {
@@ -38,12 +39,42 @@ void ReplaySystem::update_frame_offset() {
     frame_offset = practice_fixes.get_last_checkpoint().frame;
 }
 
+float get_active_fps_limit() {
+	auto* app = cocos2d::CCApplication::sharedApplication();
+	if (app->getVerticalSyncEnabled()) {
+		static const float refresh_rate = [] {
+			DEVMODEA device_mode;
+			memset(&device_mode, 0, sizeof(device_mode));
+			device_mode.dmSize = sizeof(device_mode);
+			device_mode.dmDriverExtra = 0;
+
+			if (EnumDisplaySettingsA(NULL, ENUM_CURRENT_SETTINGS, &device_mode) == 0) {
+				return 60.f;
+			} else {
+				return static_cast<float>(device_mode.dmDisplayFrequency);
+			}
+		}();
+		return refresh_rate;
+	} else {
+		return static_cast<float>(1.0 / cocos2d::CCDirector::sharedDirector()->getAnimationInterval());
+	}
+}
+
+void ReplaySystem::start_recording() {
+    logln("start_recording {}", state);
+    state = RECORDING;
+    replay = Replay(get_active_fps_limit(), default_type);
+    update_frame_offset();
+    update_status_label();
+}
+
 void ReplaySystem::on_reset() {
     auto play_layer = gd::GameManager::sharedState()->getPlayLayer();
     frame_offset = 0;
     action_index = 0;
     if (is_recording()) {
-        replay = Replay(1.f / float(CCDirector::sharedDirector()->getAnimationInterval()), default_type);
+        replay = Replay(get_active_fps_limit(), default_type);
+        logln("replay is {}", replay.get_fps());
         if (play_layer->m_player1->m_isHolding) {
             record_action(true, true, false);
             // TODO: this makes some funky levels impossible lol
@@ -51,11 +82,20 @@ void ReplaySystem::on_reset() {
             orig<&Hooks::PlayLayer::pushButton>(play_layer, 0, true);
             play_layer->m_player1->m_hasJustHeld = true;
         }
+    } else if (!is_playing()) {
+        if (record_replays) {
+            // really make sure its recording if record_replays is true
+            start_recording();
+        } else {
+            // make sure its not recording otherwise :-)
+            stop_recording();
+        }
     }
 }
 
 void ReplaySystem::push_current_replay() {
     // TODO: maybe move this over to the replay class
+    logln("pushing current replay");
     auto play_layer = gd::GameManager::sharedState()->getPlayLayer();
     replay.died_at = play_layer->m_hasCompletedLevel ? 100.f : play_layer->m_player1->m_position.x / play_layer->m_levelLength * 100.f;
     replay.level_name = play_layer->m_level->levelName;
@@ -126,7 +166,6 @@ void ReplaySystem::update_status_label() {
 void ReplaySystem::reset_state(bool save) {
     if (save && is_recording()) push_current_replay();
     state = NOTHING;
-    frame_advance = false;
     update_frame_offset();
     update_status_label();
 }

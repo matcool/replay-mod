@@ -1,7 +1,6 @@
 #include "hooks.hpp"
 #include "replay_system.hpp"
 #include "overlay_layer.hpp"
-#include "recorder.hpp"
 #include <chrono>
 #include <matdash/minhook.hpp>
 #include "replays_layer.hpp"
@@ -50,9 +49,6 @@ void Hooks::CCScheduler_update(CCScheduler* self, float dt) {
 void Hooks::PlayLayer::update(gd::PlayLayer* self, float dt) {
     auto& rs = ReplaySystem::get_instance();
     if (rs.is_playing()) rs.handle_playing();
-    if (rs.recorder.m_recording) {
-        rs.recorder.handle_recording(self, dt);
-    }
     orig<&update, Thiscall>(self, dt);
 }
 
@@ -96,11 +92,6 @@ void Hooks::PlayLayer::pauseGame(gd::PlayLayer* self, bool idk) {
 
     if (should_patch)
         patch(addr, {0xe8, 0x2f, 0x7b, 0xfe, 0xff});
-}
-
-
-CCObject* Hooks::CheckpointObject_create() {
-    return CheckpointObjectMod::create();
 }
 
 void Hooks::PlayLayer::levelComplete(gd::PlayLayer* self) {
@@ -148,38 +139,6 @@ bool Hooks::PauseLayer_init(gd::PauseLayer* self) {
     label->setPositionX(20);
     menu->addChild(label);
     return true;
-}
-
-void _handle_activated_object(bool a, bool b, gd::GameObject* object) {
-    auto play_layer = gd::GameManager::sharedState()->getPlayLayer();
-    auto& rs = ReplaySystem::get_instance();
-    if (play_layer && play_layer->m_isPracticeMode && rs.is_recording()) {
-        if (object->m_hasBeenActivated && !a)
-            rs.get_practice_fixes().add_activated_object(object);
-        if (object->m_hasBeenActivatedP2 && !b)
-            rs.get_practice_fixes().add_activated_object_p2(object);
-    }
-}
-
-void Hooks::PlayerObject_ringJump(gd::PlayerObject* self, gd::GameObject* ring) {
-    bool a = ring->m_hasBeenActivated;
-    bool b = ring->m_hasBeenActivatedP2;
-    orig<&PlayerObject_ringJump>(self, ring);
-    _handle_activated_object(a, b, ring);
-}
-
-void Hooks::GameObject_activateObject(gd::GameObject* self, gd::PlayerObject* player) {
-    bool a = self->m_hasBeenActivated;
-    bool b = self->m_hasBeenActivatedP2;
-    orig<&GameObject_activateObject>(self, player);
-    _handle_activated_object(a, b, self);
-}
-
-void Hooks::GJBaseGameLayer_bumpPlayer(gd::GJBaseGameLayer* self, gd::PlayerObject* player, gd::GameObject* object) {
-    bool a = object->m_hasBeenActivated;
-    bool b = object->m_hasBeenActivatedP2;
-    orig<&GJBaseGameLayer_bumpPlayer>(self, player, object);
-    _handle_activated_object(a, b, object);
 }
 
 void Hooks::PlayLayer::updateVisiblity(gd::PlayLayer* self) {
@@ -276,7 +235,6 @@ auto cocos(const char* symbol) {
 void Hooks::init() {
     add_hook<&CCScheduler_update, Thiscall>(cocos("?update@CCScheduler@cocos2d@@UAEXM@Z"));
     // add_hook<&CCKeyboardDispatcher_dispatchKeyboardMSG>(cocos("?dispatchKeyboardMSG@CCKeyboardDispatcher@cocos2d@@QAE_NW4enumKeyCodes@2@_N@Z"));
-    // add_hook<&CheckpointObject_create, Optfastcall>(gd::base + 0x20ddd0);
 
     add_hook<&PlayLayer::init>(gd::base + 0x1fb780);
     add_hook<&PlayLayer::update, Thiscall>(gd::base + 0x2029C0);
@@ -295,9 +253,6 @@ void Hooks::init() {
 
     add_hook<&PauseLayer_init>(gd::base + 0x1E4620);
 
-    // add_hook<&PlayerObject_ringJump>(gd::base + 0x1f4ff0);
-    // add_hook<&GameObject_activateObject>(gd::base + 0xef0e0);
-    // add_hook<&GJBaseGameLayer_bumpPlayer>(gd::base + 0x10ed50);
     add_hook<&MenuLayer_init>(gd::base + 0x1907b0);
     add_hook<&PlayerObject_playerDestroyed>(gd::base + 0x1efaa0);
 

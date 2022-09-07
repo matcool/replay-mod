@@ -1,7 +1,5 @@
 #pragma once
 #include "replay.hpp"
-#include "practice_fixes.hpp"
-#include "recorder.hpp"
 #include <vector>
 #include <memory>
 #include <filesystem>
@@ -22,8 +20,6 @@ class ReplaySystem {
     ReplayType default_type;
 
     size_t action_index = 0;
-
-    PracticeFixes practice_fixes;
 
     ReplaySystem() : default_fps(240.f), replay(default_fps), default_type(replay.get_type()) {}
 
@@ -46,13 +42,11 @@ public:
     inline bool is_playing() { return state == PLAYING; }
     inline bool is_recording() { return state == RECORDING; }
 
-    void update_frame_offset();
     void update_status_label();
 
     void toggle_playing() {
         logln("toggle_playing {}", state);
         state = is_playing() ? NOTHING : PLAYING;
-        update_frame_offset();
         update_status_label();
     }
     void start_recording();
@@ -72,15 +66,12 @@ public:
 
     void handle_playing();
 
-    inline auto& get_practice_fixes() { return practice_fixes; }
-
     unsigned get_frame();
 
     std::filesystem::path get_replays_path();
 
     bool real_time_mode = true; // fuck it we going public
     bool showcase_mode = false;
-    Recorder recorder;
 
     bool record_replays = true;
 };

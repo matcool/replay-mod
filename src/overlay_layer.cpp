@@ -2,7 +2,6 @@
 #include "replay_system.hpp"
 #include <nfd.h>
 #include <sstream>
-#include "recorder_layer.hpp"
 #include "nodes.hpp"
 #include <filesystem>
 #include <fmt/format.h>

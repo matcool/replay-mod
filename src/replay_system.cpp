@@ -34,11 +34,6 @@ unsigned ReplaySystem::get_frame() {
     return 0;
 }
 
-void ReplaySystem::update_frame_offset() {
-    // if there is no last checkpoint then it should default to 0
-    frame_offset = practice_fixes.get_last_checkpoint().frame;
-}
-
 float get_active_fps_limit() {
 	auto* app = cocos2d::CCApplication::sharedApplication();
 	if (app->getVerticalSyncEnabled()) {
@@ -64,7 +59,6 @@ void ReplaySystem::start_recording() {
     logln("start_recording {}", state);
     state = RECORDING;
     replay = Replay(get_active_fps_limit(), default_type);
-    update_frame_offset();
     update_status_label();
 }
 
@@ -148,8 +142,6 @@ void ReplaySystem::update_status_label() {
         switch (state) {
             case NOTHING:
                 label->setString("");
-                if (recorder.m_recording && (!recorder.m_until_end || from_offset<bool>(play_layer, 0x4BD)))
-                    recorder.stop();
                 break;
             case RECORDING:
                 label->setString("Recording");
@@ -158,15 +150,12 @@ void ReplaySystem::update_status_label() {
                 label->setString(showcase_mode ? "" : "Playing");
                 break;
         }
-    } else if (recorder.m_recording) {
-        recorder.stop();
     }
 }
 
 void ReplaySystem::reset_state(bool save) {
     if (save && is_recording()) push_current_replay();
     state = NOTHING;
-    update_frame_offset();
     update_status_label();
 }
 

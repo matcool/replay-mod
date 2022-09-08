@@ -313,10 +313,12 @@ void ReplaysLayer::on_settings(CCObject*) {
     //     rs.set_default_type(picker->get_index() == 0 ? ReplayType::FRAME : ReplayType::XPOS);
     // }));
 
-    settings->add_setting("Always save completions", settings->checkmark(false, [](CCNode* node) {
+    settings->add_setting("Auto save completions", settings->checkmark(rs.auto_save_completions, [&rs](CCNode* node) {
+        rs.auto_save_completions = !static_cast<gd::CCMenuItemToggler*>(node)->isOn();
     }));
 
-    settings->add_setting("Save every attempt", settings->checkmark(false, [](CCNode* node) {
+    settings->add_setting("Save every attempt", settings->checkmark(rs.save_every_attempt, [&rs](CCNode* node) {
+        rs.save_every_attempt = !static_cast<gd::CCMenuItemToggler*>(node)->isOn();
     }));
 
     // number input, not checkmark

@@ -1,6 +1,8 @@
 #include "replay_system.hpp"
 #include "hooks.hpp"
 #include "log.hpp"
+#include <date_utils.hpp>
+#include <fmt/format.h>
 
 void ReplaySystem::record_action(bool hold, bool player1, bool flip) {
     if (is_recording()) {
@@ -94,9 +96,13 @@ void ReplaySystem::push_current_replay() {
     replay.died_at = play_layer->m_hasCompletedLevel ? 100.f : play_layer->m_player1->m_position.x / play_layer->m_levelLength * 100.f;
     replay.level_name = play_layer->m_level->levelName;
     replay.created_at = std::chrono::system_clock::now();
-    temp_replays.push_back(std::make_shared<Replay>(replay));
-    if (temp_replays.size() > 5)
-        temp_replays.erase(temp_replays.begin());
+    if (save_every_attempt || (auto_save_completions && play_layer->m_hasCompletedLevel)) {
+        save_replay(replay);
+    } else {
+        temp_replays.push_back(std::make_shared<Replay>(replay));
+        if (temp_replays.size() > replay_buffer_size)
+            temp_replays.erase(temp_replays.begin());
+    }
 }
 
 void ReplaySystem::handle_playing() {
@@ -166,4 +172,12 @@ std::filesystem::path ReplaySystem::get_replays_path() {
     // ensure folder exists
     std::filesystem::create_directory(path);
     return path;
+}
+
+void ReplaySystem::save_replay(Replay& replay) {
+    auto date = date_info::from_point(replay.created_at);
+    auto filename = fmt::format(FMT_STRING("{} {}-{:02}-{:02} {:02}-{:02}-{:02} {}.replay"),
+        replay.level_name, date.year, date.month, date.day, date.hour, date.minutes, date.seconds, int(replay.died_at));
+    const auto path = get_replays_path();
+    replay.save((path / filename).string());
 }

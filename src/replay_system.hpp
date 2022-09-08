@@ -70,8 +70,14 @@ public:
 
     std::filesystem::path get_replays_path();
 
+    void save_replay(Replay& replay);
+
     bool real_time_mode = true; // fuck it we going public
     bool showcase_mode = false;
 
     bool record_replays = true;
+    bool auto_save_completions = false;
+    bool save_every_attempt = false;
+
+    size_t replay_buffer_size = 5;
 };

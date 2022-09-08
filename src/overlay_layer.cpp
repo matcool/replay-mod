@@ -19,8 +19,8 @@ bool OverlayLayer::init() {
     menu->setPosition({0, 0});
     addChild(menu);
 
-    CCDirector::sharedDirector()->getTouchDispatcher()->incrementForcePrio(2);
-    registerWithTouchDispatcher();
+    // CCDirector::sharedDirector()->getTouchDispatcher()->incrementForcePrio(2);
+    // registerWithTouchDispatcher();
     
     menu->addChild(NodeFactory<gd::CCMenuItemSpriteExtra>::start(
         NodeFactory<CCSprite>::start(CCSprite::createWithSpriteFrameName("GJ_closeBtn_001.png")).setScale(0.75f).end(),
@@ -64,20 +64,15 @@ void OverlayLayer::FLAlert_Clicked(gd::FLAlertLayer* alert, bool btn2) {
 void OverlayLayer::on_save(CCObject* sender) {
     auto& rs = ReplaySystem::get_instance();
     auto& vec = rs.temp_replays;
-    size_t index = cast<CCNode*>(sender)->getTag();
-    auto replay = vec[index];
-    auto date = date_info::from_point(replay->created_at);
-    auto filename = fmt::format(FMT_STRING("{} {}-{:02}-{:02} {:02}-{:02}-{:02}.replay"),
-        replay->level_name, date.year, date.month, date.day, date.hour, date.minutes, date.seconds);
-    auto path = rs.get_replays_path();
-    if (!std::filesystem::exists(path))
-        std::filesystem::create_directory(path);
-    replay->save((path / filename).string());
+    size_t index = static_cast<CCNode*>(sender)->getTag();
+
+    rs.save_replay(*vec[index].get());
+
     vec.erase(vec.begin() + index);
-    cast<CCNode*>(sender)->removeFromParentAndCleanup(true);
+    static_cast<CCNode*>(sender)->removeFromParentAndCleanup(true);
 }
 
 void OverlayLayer::keyBackClicked() {
-    CCDirector::sharedDirector()->getTouchDispatcher()->decrementForcePrio(2);
+    // CCDirector::sharedDirector()->getTouchDispatcher()->decrementForcePrio(2);
     removeFromParentAndCleanup(true);
 }

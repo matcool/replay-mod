@@ -186,27 +186,30 @@ void PlayerObject_playerDestroyed(gd::PlayerObject* self, bool idk) {
     orig<&PlayerObject_playerDestroyed>(self, idk);
     auto play_layer = gd::GameManager::sharedState()->getPlayLayer();
     if (play_layer && self != play_layer->m_player2) {
-        auto& rs = ReplaySystem::get_instance();
-        logln("rs state is {}, {}", rs.is_recording(), rs.is_playing());
-        if (rs.is_recording()) {
-            // TODO: support start pos
-            // prob not going to support checkpoints, but maybe
-            if (!play_layer->m_isPracticeMode && !play_layer->m_isTestMode) {
-                rs.get_replay().is_new_best = 
-                    static_cast<int>(self->getPosition().x / play_layer->m_levelLength * 100.f) > play_layer->m_level->normalPercent;
-                rs.push_current_replay();
-            }
-        }
         auto director = CCDirector::sharedDirector();
+        auto& rs = ReplaySystem::get_instance();
+        if (rs.is_recording() && !play_layer->m_isPracticeMode && !play_layer->m_isTestMode) {
+            rs.get_replay().is_new_best = 
+                static_cast<int>(self->getPosition().x / play_layer->m_levelLength * 100.f) > play_layer->m_level->normalPercent;
+        }
         // i have to run this next frame as the action is created after the call to playerDestroyed
         constexpr const auto next_frame_selector = [](CCObject* self, float d) {
             auto& rs = ReplaySystem::get_instance();
+            auto play_layer = cast<gd::PlayLayer*>(self);
             if (rs.is_recording()) {
-                rs.get_replay().orb_gain = gd::GameStatsManager::sharedState()->getStat("14") - rs.get_replay().orb_count;
+                // TODO: support start pos
+                // prob not going to support checkpoints, but maybe
+                if (!play_layer->m_isPracticeMode && !play_layer->m_isTestMode) {
+                    logln("orb gain should be {}, {}", gd::GameStatsManager::sharedState()->getStat("14"), rs.get_replay().orb_count);
+                    rs.get_replay().orb_gain = gd::GameStatsManager::sharedState()->getStat("14") - rs.get_replay().orb_count;
+                    rs.push_current_replay();
+                }
             } else if (rs.is_playing()) {
-                auto play_layer = cast<gd::PlayLayer*>(self);
                 // stop the auto retry action
                 play_layer->stopActionByTag(16);
+                // seems to stop auto retry as well
+                from_offset<bool>(play_layer, 0x4bf) = false;
+                
                 constexpr const auto delay_selector = [](CCObject* self) {
                     auto play_layer = cast<gd::PlayLayer*>(self);
                     // auto label = CCLabelBMFont::create("u suck", "bigFont.fnt");
@@ -215,8 +218,14 @@ void PlayerObject_playerDestroyed(gd::PlayerObject* self, bool idk) {
                     CCDirector::sharedDirector()->getOpenGLView()->showCursor(true);
                     gd::FLAlertLayer::create(nullptr, "info", "ok", nullptr, "replay died")->show();
                 };
-                auto action = CCCallFunc::create(play_layer, union_cast<SEL_CallFunc>(thiscall<void(CCObject*)>::wrap<delay_selector>));
-                play_layer->runAction(CCSequence::createWithTwoActions(CCDelayTime::create(0.5f), action));
+                // auto action = CCCallFunc::create(play_layer, union_cast<SEL_CallFunc>(thiscall<void(CCObject*)>::wrap<delay_selector>));
+                // play_layer->runAction(CCSequence::createWithTwoActions(CCDelayTime::create(0.5f), action));
+
+                auto& replay = rs.get_replay();
+                if (replay.is_new_best) {
+                    logln("orb gain {}", replay.orb_gain);
+                    play_layer->showNewBest(false, replay.orb_gain, 0, false, false, false);
+                }
             }
         };
         director->getScheduler()->scheduleSelector(union_cast<SEL_SCHEDULE>(thiscall<void(CCObject*, float)>::wrap<next_frame_selector>),

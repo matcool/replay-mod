@@ -38,6 +38,8 @@ bool OverlayLayer::init() {
             .setScale(0.5f)
         );
 
+        // FIXME: saving two at the same time crashes :3
+
         menu->addChild(
             NodeFactory<gd::CCMenuItemSpriteExtra>::start(
                 NodeFactory<gd::ButtonSprite>::start("save", 0, false, "goldFont.fnt", "GJ_button_01.png", 0, 0.5f).end(),

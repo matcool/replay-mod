@@ -57,10 +57,22 @@ float get_active_fps_limit() {
 	}
 }
 
+void ReplaySystem::new_replay() {
+    replay = Replay(get_active_fps_limit(), default_type);
+    replay.acc_id = gd::GJAccountManager::sharedState()->m_accountID;
+    auto* gsm = gd::GameStatsManager::sharedState();
+    replay.star_count = gsm->getStat("6");
+    replay.orb_count = gsm->getStat("14");
+    if (auto* pl = gd::GameManager::sharedState()->getPlayLayer()) {
+        replay.session_attempts = pl->m_currentAttempt;
+        replay.session_time = static_cast<u32>(pl->m_totalTime);
+    }
+}
+
 void ReplaySystem::start_recording() {
     logln("start_recording {}", state);
     state = RECORDING;
-    replay = Replay(get_active_fps_limit(), default_type);
+    new_replay();
     update_status_label();
 }
 
@@ -69,8 +81,7 @@ void ReplaySystem::on_reset() {
     frame_offset = 0;
     action_index = 0;
     if (is_recording()) {
-        replay = Replay(get_active_fps_limit(), default_type);
-        logln("replay is {}", replay.get_fps());
+        new_replay();
         if (play_layer->m_player1->m_isHolding) {
             record_action(true, true, false);
             // TODO: this makes some funky levels impossible lol

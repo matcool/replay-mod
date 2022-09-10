@@ -72,6 +72,8 @@ public:
 
     void save_replay(Replay& replay);
 
+    void new_replay();
+
     bool real_time_mode = true; // fuck it we going public
     bool showcase_mode = false;
 

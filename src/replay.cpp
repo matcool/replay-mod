@@ -51,9 +51,15 @@ inline T bin_read(std::ifstream& stream) {
  * change action x to be either float or an unsigned int
  * 
  * - version 3 : replay mod exclusive
+ * 
+ * - version 4 : replay mod again
+ * b"RPLY", version: u8, type: u8, fps: f32
+ * percent: f32, level_id: i32, level_name_len: u32, level_name: char[level_name_len],
+ * created_at: u64, account_id: i32, is_new_best: u8, session_attempts: u32, session_time: u32,
+ * star_count: u32, star_gain: u8, orb_count: u32, orb_gain: u16
  */
 
-constexpr uint8_t format_ver = 3;
+constexpr uint8_t format_ver = 4;
 constexpr const char* format_magic = "RPLY";
 
 void Replay::save(const std::string& path) {
@@ -61,11 +67,22 @@ void Replay::save(const std::string& path) {
 	file.open(path, std::ios::binary | std::ios::out);
 	file << format_magic << format_ver << type;
 	bin_write(file, fps);
+	
 	bin_write(file, died_at);
 	bin_write(file, level_id);
-	bin_write(file, level_name.size());
+	bin_write<u32>(file, level_name.size());
 	file << level_name;
-	// TODO: maybe also write created_at ?
+	
+	bin_write<u64>(file, std::chrono::duration_cast<std::chrono::seconds>(created_at.time_since_epoch()).count());
+	bin_write(file, acc_id);
+	bin_write<u8>(file, is_new_best);
+	bin_write(file, session_attempts);
+	bin_write(file, session_time);
+	bin_write(file, star_count);
+	bin_write(file, star_gain);
+	bin_write(file, orb_count);
+	bin_write(file, orb_gain);
+
 	for (const auto& action : actions) {
 		uint8_t state = static_cast<uint8_t>(action.hold) | static_cast<uint8_t>(action.player2) << 1;
 		if (type == ReplayType::XPOS)
@@ -93,12 +110,24 @@ Replay Replay::load(const std::string& path)  {
 		if (ver >= 1) {
 			if (ver >= 2) replay.type = ReplayType(bin_read<uint8_t>(file));
 			replay.fps = bin_read<float>(file);
-			if (ver == 3) {
+			if (ver >= 3) {
 				replay.died_at = bin_read<float>(file);
 				replay.level_id = bin_read<int>(file);
-				auto length = bin_read<size_t>(file);
+				auto length = bin_read<uint32_t>(file);
 				replay.level_name.resize(length, 'A');
 				file.read(replay.level_name.data(), length);
+			}
+			if (ver >= 4) {
+				replay.created_at = decltype(replay.created_at)(std::chrono::seconds(bin_read<u64>(file)));
+
+				replay.acc_id = bin_read<i32>(file);
+				replay.is_new_best = bin_read<u8>(file);
+				replay.session_attempts = bin_read<u32>(file);
+				replay.session_time = bin_read<u32>(file);
+				replay.star_count = bin_read<u32>(file);
+				replay.star_gain = bin_read<u8>(file);
+				replay.orb_count = bin_read<u32>(file);
+				replay.orb_gain = bin_read<u16>(file);
 			}
 			size_t left = file_size - static_cast<size_t>(file.tellg());
 			float x;

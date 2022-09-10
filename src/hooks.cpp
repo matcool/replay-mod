@@ -95,10 +95,19 @@ void Hooks::PlayLayer::pauseGame(gd::PlayLayer* self, bool idk) {
 }
 
 void Hooks::PlayLayer::levelComplete(gd::PlayLayer* self) {
+    auto* gsm = gd::GameStatsManager::sharedState();
+    const int prev_percent = self->m_level->normalPercent;
+    const int prev_stars = gsm->getStat("6");
+    const int prev_orbs = gsm->getStat("14");
     orig<&levelComplete>(self);
     // TODO: support start pos
     if (!self->m_isPracticeMode && !self->m_isTestMode) {
-        ReplaySystem::get_instance().reset_state(true);
+        const int new_percent = self->m_level->normalPercent;
+        auto& rs = ReplaySystem::get_instance();
+        rs.get_replay().is_new_best = new_percent > prev_percent;
+        rs.get_replay().star_gain = gsm->getStat("6") - prev_stars;
+        rs.get_replay().orb_gain = gsm->getStat("14") - prev_orbs;
+        rs.reset_state(true);
     }
 }
 
@@ -146,6 +155,8 @@ void Hooks::PlayLayer::updateVisiblity(gd::PlayLayer* self) {
         orig<&updateVisiblity>(self);
 }
 
+#include "nodes.hpp"
+
 bool MenuLayer_init(gd::MenuLayer* self) {
     if (!orig<&MenuLayer_init>(self)) return false;
 
@@ -181,16 +192,22 @@ void PlayerObject_playerDestroyed(gd::PlayerObject* self, bool idk) {
             // TODO: support start pos
             // prob not going to support checkpoints, but maybe
             if (!play_layer->m_isPracticeMode && !play_layer->m_isTestMode) {
+                rs.get_replay().is_new_best = 
+                    static_cast<int>(self->getPosition().x / play_layer->m_levelLength * 100.f) > play_layer->m_level->normalPercent;
                 rs.push_current_replay();
             }
-        } else if (rs.is_playing()) {
-            auto director = CCDirector::sharedDirector();
-            // i have to run this next frame as the action is created after the call to playerDestroyed
-            constexpr const auto selector = [](CCObject* self, float d) {
+        }
+        auto director = CCDirector::sharedDirector();
+        // i have to run this next frame as the action is created after the call to playerDestroyed
+        constexpr const auto next_frame_selector = [](CCObject* self, float d) {
+            auto& rs = ReplaySystem::get_instance();
+            if (rs.is_recording()) {
+                rs.get_replay().orb_gain = gd::GameStatsManager::sharedState()->getStat("14") - rs.get_replay().orb_count;
+            } else if (rs.is_playing()) {
                 auto play_layer = cast<gd::PlayLayer*>(self);
                 // stop the auto retry action
                 play_layer->stopActionByTag(16);
-                constexpr const auto call_selector = [](CCObject* self) {
+                constexpr const auto delay_selector = [](CCObject* self) {
                     auto play_layer = cast<gd::PlayLayer*>(self);
                     // auto label = CCLabelBMFont::create("u suck", "bigFont.fnt");
                     // label->setPosition(200, 200);
@@ -198,12 +215,12 @@ void PlayerObject_playerDestroyed(gd::PlayerObject* self, bool idk) {
                     CCDirector::sharedDirector()->getOpenGLView()->showCursor(true);
                     gd::FLAlertLayer::create(nullptr, "info", "ok", nullptr, "replay died")->show();
                 };
-                auto action = CCCallFunc::create(play_layer, union_cast<SEL_CallFunc>(thiscall<void(CCObject*)>::wrap<call_selector>));
+                auto action = CCCallFunc::create(play_layer, union_cast<SEL_CallFunc>(thiscall<void(CCObject*)>::wrap<delay_selector>));
                 play_layer->runAction(CCSequence::createWithTwoActions(CCDelayTime::create(0.5f), action));
-            };
-            director->getScheduler()->scheduleSelector(union_cast<SEL_SCHEDULE>(thiscall<void(CCObject*, float)>::wrap<selector>),
-                play_layer, 0.f, 0, 0.f, false);
-        }
+            }
+        };
+        director->getScheduler()->scheduleSelector(union_cast<SEL_SCHEDULE>(thiscall<void(CCObject*, float)>::wrap<next_frame_selector>),
+            play_layer, 0.f, 0, 0.f, false);
     }
 }
 

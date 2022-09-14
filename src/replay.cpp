@@ -55,7 +55,7 @@ inline T bin_read(std::ifstream& stream) {
  * - version 4 : replay mod again
  * b"RPLY", version: u8, type: u8, fps: f32
  * percent: f32, level_id: i32, level_name_len: u32, level_name: char[level_name_len],
- * created_at: u64, account_id: i32, is_new_best: u8, session_attempts: u32, session_time: u32,
+ * created_at: u64, account_id: i32, is_new_best: u8, is_ldm: u8, session_attempts: u32, session_time: u32,
  * star_count: u32, star_gain: u8, orb_count: u32, orb_gain: u16
  */
 
@@ -76,6 +76,7 @@ void Replay::save(const std::string& path) {
 	bin_write<u64>(file, std::chrono::duration_cast<std::chrono::seconds>(created_at.time_since_epoch()).count());
 	bin_write(file, acc_id);
 	bin_write<u8>(file, is_new_best);
+	bin_write<u8>(file, 0); // is_ldm
 	bin_write(file, session_attempts);
 	bin_write(file, session_time);
 	bin_write(file, star_count);
@@ -122,6 +123,7 @@ Replay Replay::load(const std::string& path)  {
 
 				replay.acc_id = bin_read<i32>(file);
 				replay.is_new_best = bin_read<u8>(file);
+				bin_read<u8>(file); // is_ldm
 				replay.session_attempts = bin_read<u32>(file);
 				replay.session_time = bin_read<u32>(file);
 				replay.star_count = bin_read<u32>(file);

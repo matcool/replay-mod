@@ -244,12 +244,23 @@ void ReplaysLayer::on_view(CCObject* sender) {
     auto online_levels = AwesomeDict<std::string, gd::GJGameLevel*>(gd::GameLevelManager::sharedState()->m_onlineLevels);
     auto lvl = online_levels[std::to_string(replay.level_id)];
     // sorry levels with empty level string but its a much easier way to check
-    if (lvl && !lvl->levelNotDownloaded && !lvl->levelString.empty()) {
+    if (lvl && !lvl->levelNotDownloaded && !lvl->levelString.to_sv().empty()) {
+        auto* fake_level = gd::GJGameLevel::create();
+        // turn these into gd::string :-)
+        fake_level->levelName = lvl->levelName;
+        fake_level->levelString = lvl->levelString;
+
+        fake_level->normalPercent = 100;
+        fake_level->normalPercent_rand = 100;
+        fake_level->normalPercent_seed = 0;
+        fake_level->songID = lvl->songID;
+        fake_level->audioTrack = lvl->audioTrack;
+
         auto& rs = ReplaySystem::get_instance();
         rs.get_replay() = replay;
         rs.toggle_playing();
 
-        auto layer = gd::PlayLayer::create(lvl);
+        auto layer = gd::PlayLayer::create(fake_level);
         layer->m_isTestMode = true; // ez safe mode
         rs.update_status_label();
         

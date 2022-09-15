@@ -98,6 +98,8 @@ bool ReplaysLayer::init() {
             this->list->reset();
         };
         addChild(text_input);
+
+        this->input_node = text_input;
     }
 
 
@@ -239,6 +241,11 @@ void ReplaysLayer::on_view(CCObject* sender) {
     const auto index = static_cast<size_t>(btn->getTag());
     if (index >= replays.size()) return;
 
+    // TODO: make this part of textinputnode
+    // by having every cctouchbegan thats not swallowed
+    // close the text field
+    this->input_node->input_node->m_pTextField->detachWithIME();
+
     const Replay& replay = this->filter.empty() ? replays[index] : filtered_replays[index];
     
     auto online_levels = AwesomeDict<std::string, gd::GJGameLevel*>(gd::GameLevelManager::sharedState()->m_onlineLevels);
@@ -315,6 +322,8 @@ public:
 void ReplaysLayer::on_settings(CCObject*) {
     auto* settings = SettingsLayer::create(350.f);
     auto& rs = ReplaySystem::get_instance();
+
+    this->input_node->input_node->m_pTextField->detachWithIME();
 
     settings->add_setting("Record replays", settings->checkmark(rs.record_replays, [&rs](CCNode* node) {
         rs.record_replays = !static_cast<gd::CCMenuItemToggler*>(node)->isOn();

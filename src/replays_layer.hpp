@@ -12,6 +12,7 @@ public:
     std::vector<std::reference_wrapper<Replay>> filtered_replays;
     size_t scroll = 0;
     CCNode* widgets = nullptr;
+    class TextInputNode* input_node = nullptr;
 
     bool init();
     
